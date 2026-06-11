@@ -6,6 +6,7 @@ import { getSession } from '@/lib/auth'
 import { eq, desc } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import NewGoogleScrapeButton from './NewGoogleScrapeButton'
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -26,7 +27,10 @@ export default async function RunsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Historia runów</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Historia runów</h1>
+        <NewGoogleScrapeButton />
+      </div>
 
       <div className="bg-white rounded-lg border">
         <table className="w-full text-sm">
