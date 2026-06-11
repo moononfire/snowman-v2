@@ -1,0 +1,39 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/db'
+import { campaigns } from '@/db/schema'
+import { getSession } from '@/lib/auth'
+import { eq, desc } from 'drizzle-orm'
+
+export async function GET() {
+  const session = await getSession()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const rows = await db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.clientSlug, session.clientSlug))
+    .orderBy(desc(campaigns.createdAt))
+
+  return NextResponse.json(rows)
+}
+
+export async function POST(req: NextRequest) {
+  const session = await getSession()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { name, script, config } = await req.json()
+  if (!name) return NextResponse.json({ error: 'Missing name' }, { status: 400 })
+
+  const rows = await db
+    .insert(campaigns)
+    .values({
+      clientSlug: session.clientSlug,
+      name,
+      script: script ?? 'send_campaign',
+      config: config ?? {},
+      status: 'draft',
+    })
+    .returning()
+
+  return NextResponse.json(rows[0], { status: 201 })
+}
