@@ -27,6 +27,10 @@ export async function POST(req: NextRequest) {
   const { script, params = {} } = await req.json()
   if (!script) return NextResponse.json({ error: 'Missing script' }, { status: 400 })
 
+  if (script === 'scrape_google_maps' && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+    params.api_key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+  }
+
   const runId = randomUUID()
 
   await db.insert(runs).values({
