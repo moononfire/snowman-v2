@@ -620,7 +620,7 @@ server {
 ## Bezpieczeństwo
 
 - Każdy request weryfikowany Bearer tokenem
-- `client_slug` sanityzowany przed użyciem w ścieżce — tylko `[a-z0-9-]`
+- `client_slug` sanityzowany przed użyciem w ścieżce — tylko `[a-z0-9-]`j
 - Skrypty uruchamiane jako user `deploy` bez sudo
 - Webhook Next.js→VPS i VPS→Next.js używają tego samego shared tokena (weryfikacja obu kierunków)
 - Pliki serwowane wyłącznie przez Next.js proxy — klient nigdy nie zna adresu VPS Worker
