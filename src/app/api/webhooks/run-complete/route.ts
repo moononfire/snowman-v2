@@ -39,14 +39,22 @@ function parseCSV(text: string): Record<string, string>[] {
 export async function POST(req: NextRequest) {
   const auth = req.headers.get('authorization')
   if (auth !== `Bearer ${process.env.VPS_WORKER_TOKEN}`) {
+    console.error('[run-complete] Unauthorized request')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { runId, vpsRunId, status, outputFiles, errorMessage, finishedAt } = await req.json()
+  const body = await req.json()
+  const { runId, vpsRunId, status, outputFiles, errorMessage, finishedAt } = body
+  // Log immediately — before any condition — so we always see what arrived
+  console.log(`[run-complete] RECEIVED runId=${runId} status=${status} outputFiles=${JSON.stringify(outputFiles)} errorMessage=${errorMessage ?? null}`)
 
   const runRows = await db.select().from(runs).where(eq(runs.id, runId)).limit(1)
-  if (!runRows.length) return NextResponse.json({ error: 'Run not found' }, { status: 404 })
+  if (!runRows.length) {
+    console.error(`[run-complete] run not found: ${runId}`)
+    return NextResponse.json({ error: 'Run not found' }, { status: 404 })
+  }
   const run = runRows[0]
+  console.log(`[run-complete] run.script=${run.script} run.clientId=${run.clientId}`)
 
   await db
     .update(runs)
@@ -59,10 +67,14 @@ export async function POST(req: NextRequest) {
     })
     .where(eq(runs.id, runId))
 
-  if (status === 'done' && run.script === 'scrape_google_maps' && Array.isArray(outputFiles) && outputFiles.length > 0) {
+  const isGoogleScrape = run.script === 'scrape_google_maps'
+  const hasFiles = Array.isArray(outputFiles) && outputFiles.length > 0
+  console.log(`[run-complete] isGoogleScrape=${isGoogleScrape} isDone=${status === 'done'} hasFiles=${hasFiles}`)
+
+  if (status === 'done' && isGoogleScrape && hasFiles) {
     const clientRows = await db.select().from(clients).where(eq(clients.id, run.clientId)).limit(1)
     const slug = clientRows[0]?.slug
-    console.log(`[run-complete] runId=${runId} clientId=${run.clientId} slug=${slug} outputFiles=${JSON.stringify(outputFiles)}`)
+    console.log(`[run-complete] clientSlug=${slug}`)
 
     if (!slug) {
       const errMsg = `Brak slug dla clientId=${run.clientId} — kontakty nie zaimportowane`
@@ -74,6 +86,7 @@ export async function POST(req: NextRequest) {
 
       for (const filename of outputFiles as string[]) {
         try {
+          console.log(`[run-complete] downloading ${filename} from slug=${slug}`)
           const res = await vps.getFile(slug, filename)
           if (!res.ok) {
             const msg = `getFile ${filename}: HTTP ${res.status} ${res.statusText}`
@@ -83,7 +96,7 @@ export async function POST(req: NextRequest) {
           }
           const text = await res.text()
           const rows = parseCSV(text)
-          console.log(`[run-complete] file=${filename} rows=${rows.length} firstRow=${JSON.stringify(rows[0])}`)
+          console.log(`[run-complete] file=${filename} size=${text.length}b parsed=${rows.length} rows firstRow=${JSON.stringify(rows[0])}`)
           const data = rows
             .filter(r => r.name || r.phone)
             .map(r => ({
@@ -95,27 +108,27 @@ export async function POST(req: NextRequest) {
               tags: r.category_google || null,
               source: 'GOOGLE_SCRAPE' as const,
             }))
-          console.log(`[run-complete] inserting ${data.length} contacts from ${filename}`)
+          console.log(`[run-complete] inserting ${data.length} contacts (filtered from ${rows.length})`)
           if (data.length > 0) {
             await db.insert(contacts).values(data)
             totalImported += data.length
+            console.log(`[run-complete] insert OK`)
+          } else {
+            console.warn(`[run-complete] 0 contacts after filter — rows had keys: ${JSON.stringify(Object.keys(rows[0] ?? {}))}`)
           }
         } catch (err) {
           const msg = `${filename}: ${err instanceof Error ? err.message : String(err)}`
-          console.error(`[run-complete] error processing file=${msg}`, err)
+          console.error(`[run-complete] EXCEPTION file=${msg}`, err)
           importErrors.push(msg)
         }
       }
 
       if (importErrors.length > 0) {
-        const existing = run.errorMessage ?? ''
         const errSuffix = `Import błędy: ${importErrors.join('; ')}`
-        await db.update(runs).set({ errorMessage: [existing, errSuffix].filter(Boolean).join(' | ') }).where(eq(runs.id, runId))
+        await db.update(runs).set({ errorMessage: errSuffix }).where(eq(runs.id, runId))
       }
-      console.log(`[run-complete] done — zaimportowano ${totalImported} kontaktów, błędy: ${importErrors.length}`)
+      console.log(`[run-complete] DONE — imported=${totalImported} errors=${importErrors.length}`)
     }
-  } else if (status === 'done' && run.script === 'scrape_google_maps') {
-    console.log(`[run-complete] runId=${runId} done ale outputFiles puste lub brak — sprawdź logi VPS`)
   }
 
   return NextResponse.json({ ok: true })
