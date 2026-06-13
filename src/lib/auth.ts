@@ -31,7 +31,10 @@ export async function getSession(): Promise<SessionPayload | null> {
   if (!token) return null
   try {
     const { payload } = await jwtVerify(token, SECRET)
-    return payload as unknown as SessionPayload
+    const clientId = payload.clientId as string | undefined
+    const clientSlug = payload.clientSlug as string | undefined
+    if (!clientId || !clientSlug) return null
+    return { clientId, clientSlug }
   } catch {
     return null
   }
