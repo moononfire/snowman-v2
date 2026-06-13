@@ -173,38 +173,40 @@ export default function NewGoogleScrapeButton() {
 
       {open && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto" style={{ background: 'var(--card)' }}>
             <div className="p-6">
               <h2 className="font-semibold text-lg mb-4">Nowy scraping Google Maps</h2>
               <form onSubmit={handleSubmit} className="space-y-4">
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Fraza wyszukiwania</label>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>Fraza wyszukiwania</label>
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="np. restauracje, hydraulik, dentysta"
                     required
                     className="w-full border rounded px-3 py-2 text-sm"
+                    style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
                   />
                 </div>
 
                 {apiKey ? (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Obszar <span className="font-normal text-gray-400">(opcjonalnie)</span>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
+                      Obszar <span className="font-normal" style={{ color: 'var(--muted-foreground)' }}>(opcjonalnie)</span>
                     </label>
                     <input
                       ref={searchRef}
                       placeholder="Wyszukaj miasto lub region..."
                       className="w-full border rounded px-3 py-2 text-sm mb-2"
+                      style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
                     />
-                    <div ref={mapDivRef} className="w-full h-64 rounded border bg-gray-100" />
+                    <div ref={mapDivRef} className="w-full h-64 rounded border" style={{ background: 'var(--muted)' }} />
 
                     {center ? (
                       <div className="mt-3 space-y-2">
                         <div className="flex items-center justify-between">
-                          <label className="text-sm font-medium text-gray-700">Promień</label>
+                          <label className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Promień</label>
                           <span className="text-sm font-semibold text-blue-600">{radiusKm} km</span>
                         </div>
                         <input
@@ -212,13 +214,13 @@ export default function NewGoogleScrapeButton() {
                           onChange={(e) => handleRadiusChange(Number(e.target.value))}
                           className="w-full accent-blue-600"
                         />
-                        <div className="bg-gray-50 rounded p-2 flex gap-6 text-xs font-mono text-gray-500">
-                          <span><span className="text-gray-400">SW </span>{coordsSw}</span>
-                          <span><span className="text-gray-400">NE </span>{coordsNe}</span>
+                        <div className="rounded p-2 flex gap-6 text-xs font-mono" style={{ background: 'var(--muted)', color: 'var(--muted-foreground)' }}>
+                          <span>SW {coordsSw}</span>
+                          <span>NE {coordsNe}</span>
                         </div>
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs mt-1" style={{ color: 'var(--muted-foreground)' }}>
                         Wyszukaj miasto aby zaznaczyć obszar. Bez obszaru skrypt przeszuka globalnie (max 60 wyników).
                       </p>
                     )}
@@ -242,7 +244,8 @@ export default function NewGoogleScrapeButton() {
                   <button
                     type="button"
                     onClick={handleClose}
-                    className="px-4 py-2 rounded text-sm border hover:bg-gray-50"
+                    className="px-4 py-2 rounded text-sm border"
+                    style={{ color: 'var(--foreground)' }}
                   >
                     Anuluj
                   </button>

@@ -15,7 +15,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
   const rows = await db
     .select()
     .from(runs)
-    .where(and(eq(runs.id, id), eq(runs.clientSlug, session.clientSlug)))
+    .where(and(eq(runs.id, id), eq(runs.clientId, session.clientId)))
     .limit(1)
 
   if (!rows.length) notFound()

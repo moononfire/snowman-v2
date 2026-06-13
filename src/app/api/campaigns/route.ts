@@ -11,7 +11,7 @@ export async function GET() {
   const rows = await db
     .select()
     .from(campaigns)
-    .where(eq(campaigns.clientSlug, session.clientSlug))
+    .where(eq(campaigns.clientId, session.clientId))
     .orderBy(desc(campaigns.createdAt))
 
   return NextResponse.json(rows)
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   const rows = await db
     .insert(campaigns)
     .values({
-      clientSlug: session.clientSlug,
+      clientId: session.clientId,
       name,
       script: script ?? 'send_campaign',
       config: config ?? {},

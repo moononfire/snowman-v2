@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const rows = await db
     .select()
     .from(runs)
-    .where(and(eq(runs.id, id), eq(runs.clientSlug, session.clientSlug)))
+    .where(and(eq(runs.id, id), eq(runs.clientId, session.clientId)))
     .limit(1)
 
   if (!rows.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })

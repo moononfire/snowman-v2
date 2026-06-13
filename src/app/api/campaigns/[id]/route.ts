@@ -20,7 +20,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const rows = await db
     .update(campaigns)
     .set(update)
-    .where(and(eq(campaigns.id, id), eq(campaigns.clientSlug, session.clientSlug)))
+    .where(and(eq(campaigns.id, id), eq(campaigns.clientId, session.clientId)))
     .returning()
 
   if (!rows.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -34,7 +34,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params
   await db
     .delete(campaigns)
-    .where(and(eq(campaigns.id, id), eq(campaigns.clientSlug, session.clientSlug)))
+    .where(and(eq(campaigns.id, id), eq(campaigns.clientId, session.clientId)))
 
   return NextResponse.json({ ok: true })
 }

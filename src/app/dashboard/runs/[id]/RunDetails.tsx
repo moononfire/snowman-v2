@@ -55,7 +55,7 @@ export function RunDetails({ initialRun }: { initialRun: Run }) {
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/dashboard/runs" className="text-sm text-gray-500 hover:underline">← Runy</Link>
+        <Link href="/dashboard/runs" className="text-sm hover:underline" style={{ color: 'var(--muted-foreground)' }}>← Runy</Link>
         <h1 className="text-2xl font-bold font-mono">{run.script}</h1>
         <span className={`text-sm px-2 py-0.5 rounded-full ${STATUS_COLORS[run.status] ?? ''}`}>
           {run.status}
@@ -63,24 +63,24 @@ export function RunDetails({ initialRun }: { initialRun: Run }) {
       </div>
 
       <div className="grid grid-cols-2 gap-6 mb-6">
-        <div className="bg-white rounded-lg border p-4 space-y-2">
+        <div className="rounded-lg border p-4 space-y-2" style={{ background: 'var(--card)' }}>
           <h2 className="font-semibold mb-3">Parametry</h2>
-          <pre className="text-xs bg-gray-50 p-3 rounded overflow-auto">
+          <pre className="text-xs p-3 rounded overflow-auto" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>
             {JSON.stringify(run.params, null, 2)}
           </pre>
         </div>
 
-        <div className="bg-white rounded-lg border p-4">
+        <div className="rounded-lg border p-4" style={{ background: 'var(--card)' }}>
           <h2 className="font-semibold mb-3">Pliki wynikowe</h2>
           {outputFiles.length === 0 ? (
-            <p className="text-gray-400 text-sm">Brak plików</p>
+            <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Brak plików</p>
           ) : (
             <ul className="space-y-1">
               {outputFiles.map((f) => (
                 <li key={f}>
                   <a
                     href={`/api/files/${encodeURIComponent(f)}`}
-                    className="text-blue-600 hover:underline text-sm"
+                    className="text-blue-500 hover:underline text-sm"
                   >
                     {f}
                   </a>
@@ -89,12 +89,12 @@ export function RunDetails({ initialRun }: { initialRun: Run }) {
             </ul>
           )}
           {run.errorMessage && (
-            <p className="text-red-600 text-sm mt-3">{run.errorMessage}</p>
+            <p className="text-red-500 text-sm mt-3">{run.errorMessage}</p>
           )}
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border p-4">
+      <div className="rounded-lg border p-4" style={{ background: 'var(--card)' }}>
         <h2 className="font-semibold mb-3">Logi</h2>
         <pre className="text-xs bg-gray-900 text-green-400 p-4 rounded overflow-auto max-h-96 whitespace-pre-wrap">
           {logs || 'Brak logów'}

@@ -7,7 +7,16 @@ export function LogoutButton() {
     <form action={logoutAction}>
       <button
         type="submit"
-        className="w-full text-left text-sm text-gray-500 hover:text-gray-900 px-3 py-2 rounded hover:bg-gray-100"
+        className="w-full text-left text-sm px-3 py-2 rounded transition-colors"
+        style={{ color: 'var(--muted-foreground)' }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = 'var(--muted)'
+          e.currentTarget.style.color = 'var(--foreground)'
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = ''
+          e.currentTarget.style.color = 'var(--muted-foreground)'
+        }}
       >
         Wyloguj
       </button>

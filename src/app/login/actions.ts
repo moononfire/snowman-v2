@@ -26,7 +26,11 @@ export async function loginAction(_state: unknown, formData: FormData) {
     return { error: 'Konto zawieszone. Skontaktuj się z agencją.' }
   }
 
-  const authRows = await db.select().from(clientAuth).where(eq(clientAuth.clientSlug, slug)).limit(1)
+  if (client.subscriptionExpiresAt && client.subscriptionExpiresAt < new Date()) {
+    return { error: 'Subskrypcja wygasła. Odnów dostęp w sklepie.' }
+  }
+
+  const authRows = await db.select().from(clientAuth).where(eq(clientAuth.clientId, client.id)).limit(1)
   if (!authRows.length) {
     return { error: 'Nieprawidłowy slug lub hasło' }
   }
@@ -36,6 +40,6 @@ export async function loginAction(_state: unknown, formData: FormData) {
     return { error: 'Nieprawidłowy slug lub hasło' }
   }
 
-  await createSession(slug)
+  await createSession(client.id, slug)
   redirect('/dashboard')
 }

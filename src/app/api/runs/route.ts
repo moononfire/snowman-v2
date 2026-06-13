@@ -13,7 +13,7 @@ export async function GET() {
   const rows = await db
     .select()
     .from(runs)
-    .where(eq(runs.clientSlug, session.clientSlug))
+    .where(eq(runs.clientId, session.clientId))
     .orderBy(desc(runs.createdAt))
     .limit(50)
 
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
   await db.insert(runs).values({
     id: runId,
-    clientSlug: session.clientSlug,
+    clientId: session.clientId,
     script,
     status: 'pending',
     params,

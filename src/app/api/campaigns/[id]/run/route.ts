@@ -14,7 +14,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const rows = await db
     .select()
     .from(campaigns)
-    .where(and(eq(campaigns.id, id), eq(campaigns.clientSlug, session.clientSlug)))
+    .where(and(eq(campaigns.id, id), eq(campaigns.clientId, session.clientId)))
     .limit(1)
 
   if (!rows.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -25,7 +25,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   await db.insert(runs).values({
     id: runId,
-    clientSlug: session.clientSlug,
+    clientId: session.clientId,
     script: campaign.script,
     status: 'pending',
     params: params_,

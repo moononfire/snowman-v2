@@ -1,0 +1,19 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - heading "Logowanie" [level=1] [ref=e4]
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]: Slug klienta
+        - textbox "firma-xyz" [ref=e8]
+      - generic [ref=e9]:
+        - generic [ref=e10]: Hasło
+        - textbox [ref=e11]
+      - button "Zaloguj się" [ref=e12]
+      - link "Zapomniałem hasła" [ref=e14] [cursor=pointer]:
+        - /url: /forgot-password
+  - button "Przełącz motyw" [ref=e15]:
+    - img [ref=e16]
+    - generic [ref=e18]: Ciemny
+  - button "Open Next.js Dev Tools" [ref=e24] [cursor=pointer]:
+    - img [ref=e25]
+  - alert [ref=e28]

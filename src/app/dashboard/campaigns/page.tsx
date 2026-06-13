@@ -14,11 +14,11 @@ type Campaign = {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700',
-  scheduled: 'bg-purple-100 text-purple-800',
-  running: 'bg-blue-100 text-blue-800',
-  done: 'bg-green-100 text-green-800',
-  paused: 'bg-yellow-100 text-yellow-800',
+  draft: 'bg-gray-100 text-gray-700 dark:bg-gray-700/60 dark:text-gray-300',
+  scheduled: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
+  running: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+  done: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
+  paused: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
 }
 
 export default function CampaignsPage() {
@@ -73,7 +73,7 @@ export default function CampaignsPage() {
       </div>
 
       {showForm && (
-        <div className="bg-white border rounded-lg p-4 mb-6">
+        <div className="border rounded-lg p-4 mb-6" style={{ background: 'var(--card)' }}>
           <h2 className="font-semibold mb-3">Nowa kampania</h2>
           <form onSubmit={createCampaign} className="space-y-3">
             <input
@@ -82,6 +82,7 @@ export default function CampaignsPage() {
               placeholder="Nazwa kampanii"
               required
               className="w-full border rounded px-3 py-2 text-sm"
+              style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
             />
             <input
               value={script}
@@ -89,6 +90,7 @@ export default function CampaignsPage() {
               placeholder="Skrypt (np. send_campaign)"
               required
               className="w-full border rounded px-3 py-2 text-sm font-mono"
+              style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
             />
             <div className="flex gap-2">
               <button type="submit" disabled={submitting} className="bg-blue-600 text-white px-4 py-2 rounded text-sm">
@@ -102,21 +104,21 @@ export default function CampaignsPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg border">
+      <div className="rounded-lg border overflow-hidden" style={{ background: 'var(--card)' }}>
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-gray-50">
-              <th className="text-left px-4 py-2 font-medium text-gray-600">Nazwa</th>
-              <th className="text-left px-4 py-2 font-medium text-gray-600">Skrypt</th>
-              <th className="text-left px-4 py-2 font-medium text-gray-600">Status</th>
+            <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--muted)' }}>
+              <th className="text-left px-4 py-2 font-medium" style={{ color: 'var(--muted-foreground)' }}>Nazwa</th>
+              <th className="text-left px-4 py-2 font-medium" style={{ color: 'var(--muted-foreground)' }}>Skrypt</th>
+              <th className="text-left px-4 py-2 font-medium" style={{ color: 'var(--muted-foreground)' }}>Status</th>
               <th className="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {campaigns.map((c) => (
-              <tr key={c.id} className="border-b last:border-0 hover:bg-gray-50">
+              <tr key={c.id} className="table-row-hover" style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-4 py-3 font-medium">{c.name}</td>
-                <td className="px-4 py-3 font-mono text-gray-600">{c.script}</td>
+                <td className="px-4 py-3 font-mono" style={{ color: 'var(--muted-foreground)' }}>{c.script}</td>
                 <td className="px-4 py-3">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[c.status] ?? ''}`}>
                     {c.status}
@@ -125,7 +127,7 @@ export default function CampaignsPage() {
                 <td className="px-4 py-3">
                   <div className="flex gap-2 justify-end">
                     {c.lastRunId && (
-                      <Link href={`/dashboard/runs/${c.lastRunId}`} className="text-blue-600 hover:underline text-xs">
+                      <Link href={`/dashboard/runs/${c.lastRunId}`} className="text-blue-500 hover:underline text-xs">
                         Ostatni run
                       </Link>
                     )}
@@ -137,7 +139,7 @@ export default function CampaignsPage() {
                     </button>
                     <button
                       onClick={() => deleteCampaign(c.id)}
-                      className="text-red-600 hover:underline text-xs"
+                      className="text-red-500 hover:underline text-xs"
                     >
                       Usuń
                     </button>
@@ -147,7 +149,7 @@ export default function CampaignsPage() {
             ))}
             {campaigns.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-gray-400">Brak kampanii</td>
+                <td colSpan={4} className="px-4 py-8 text-center" style={{ color: 'var(--muted-foreground)' }}>Brak kampanii</td>
               </tr>
             )}
           </tbody>

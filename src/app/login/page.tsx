@@ -7,27 +7,29 @@ export default function LoginPage() {
   const [state, action, pending] = useActionState(loginAction, undefined)
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white p-8 rounded-lg shadow w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--background)' }}>
+      <div className="p-8 rounded-lg shadow w-full max-w-sm border" style={{ background: 'var(--card)' }}>
         <h1 className="text-2xl font-bold mb-6 text-center">Logowanie</h1>
         <form action={action} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Slug klienta</label>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>Slug klienta</label>
             <input
               name="slug"
               type="text"
               required
-              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
               placeholder="firma-xyz"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Hasło</label>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>Hasło</label>
             <input
               name="password"
               type="password"
               required
-              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
             />
           </div>
           {state?.error && (
@@ -40,6 +42,9 @@ export default function LoginPage() {
           >
             {pending ? 'Logowanie...' : 'Zaloguj się'}
           </button>
+          <div className="text-center">
+            <a href="/forgot-password" className="text-sm text-blue-600 hover:underline">Zapomniałem hasła</a>
+          </div>
         </form>
       </div>
     </div>

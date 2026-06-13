@@ -5,11 +5,12 @@ const SECRET = new TextEncoder().encode(process.env.JWT_SECRET!)
 const COOKIE = 'session'
 
 export interface SessionPayload {
+  clientId: string
   clientSlug: string
 }
 
-export async function createSession(clientSlug: string) {
-  const token = await new SignJWT({ clientSlug })
+export async function createSession(clientId: string, clientSlug: string) {
+  const token = await new SignJWT({ clientId, clientSlug })
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime('7d')
     .sign(SECRET)
