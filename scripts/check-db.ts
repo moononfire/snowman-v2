@@ -12,7 +12,7 @@ async function main() {
     WHERE table_schema = 'public'
     ORDER BY table_name
   `
-  console.log('Tables:', tables.map((r: { table_name: string }) => r.table_name).join(', '))
+  console.log('Tables:', tables.map((r) => (r as { table_name: string }).table_name).join(', '))
 }
 
 main().catch(console.error)
