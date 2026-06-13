@@ -41,6 +41,9 @@ export async function POST(req: NextRequest) {
     params,
   })
 
+  if (!process.env.NEXTJS_URL) {
+    console.error('[runs] NEXTJS_URL env var nie ustawiony — VPS nie będzie mógł wysłać webhooka!')
+  }
   const webhookUrl = `${process.env.NEXTJS_URL}/api/webhooks/run-complete`
 
   let vpsRes: Response | null = null

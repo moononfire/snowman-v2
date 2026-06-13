@@ -1,9 +1,9 @@
 const VPS_URL = process.env.VPS_WORKER_URL!
 const VPS_TOKEN = process.env.VPS_WORKER_TOKEN!
 
-async function vpsFetch(path: string, init: RequestInit = {}) {
+async function vpsFetch(path: string, init: RequestInit = {}, timeoutMs = 10_000) {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 10_000)
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     const res = await fetch(`${VPS_URL}${path}`, {
@@ -54,7 +54,7 @@ export const vps = {
   getFiles: (slug: string) => vpsFetch(`/clients/${slug}/files`),
 
   getFile: (slug: string, filename: string) =>
-    vpsFetch(`/clients/${slug}/files/${encodeURIComponent(filename)}`),
+    vpsFetch(`/clients/${slug}/files/${encodeURIComponent(filename)}`, {}, 30_000),
 
   deleteFile: (slug: string, filename: string) =>
     vpsFetch(`/clients/${slug}/files/${encodeURIComponent(filename)}`, {

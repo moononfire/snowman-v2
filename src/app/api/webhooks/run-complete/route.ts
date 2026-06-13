@@ -63,12 +63,22 @@ export async function POST(req: NextRequest) {
     const clientRows = await db.select().from(clients).where(eq(clients.id, run.clientId)).limit(1)
     const slug = clientRows[0]?.slug
     console.log(`[run-complete] runId=${runId} clientId=${run.clientId} slug=${slug} outputFiles=${JSON.stringify(outputFiles)}`)
-    if (slug) {
+
+    if (!slug) {
+      const errMsg = `Brak slug dla clientId=${run.clientId} — kontakty nie zaimportowane`
+      console.error(`[run-complete] ${errMsg}`)
+      await db.update(runs).set({ errorMessage: errMsg }).where(eq(runs.id, runId))
+    } else {
+      let totalImported = 0
+      const importErrors: string[] = []
+
       for (const filename of outputFiles as string[]) {
         try {
           const res = await vps.getFile(slug, filename)
           if (!res.ok) {
-            console.error(`[run-complete] getFile failed: ${res.status} ${res.statusText} file=${filename}`)
+            const msg = `getFile ${filename}: HTTP ${res.status} ${res.statusText}`
+            console.error(`[run-complete] ${msg}`)
+            importErrors.push(msg)
             continue
           }
           const text = await res.text()
@@ -88,14 +98,24 @@ export async function POST(req: NextRequest) {
           console.log(`[run-complete] inserting ${data.length} contacts from ${filename}`)
           if (data.length > 0) {
             await db.insert(contacts).values(data)
+            totalImported += data.length
           }
         } catch (err) {
-          console.error(`[run-complete] error processing file=${filename}:`, err)
+          const msg = `${filename}: ${err instanceof Error ? err.message : String(err)}`
+          console.error(`[run-complete] error processing file=${msg}`, err)
+          importErrors.push(msg)
         }
       }
-    } else {
-      console.error(`[run-complete] no slug for clientId=${run.clientId}, skipping contact import`)
+
+      if (importErrors.length > 0) {
+        const existing = run.errorMessage ?? ''
+        const errSuffix = `Import błędy: ${importErrors.join('; ')}`
+        await db.update(runs).set({ errorMessage: [existing, errSuffix].filter(Boolean).join(' | ') }).where(eq(runs.id, runId))
+      }
+      console.log(`[run-complete] done — zaimportowano ${totalImported} kontaktów, błędy: ${importErrors.length}`)
     }
+  } else if (status === 'done' && run.script === 'scrape_google_maps') {
+    console.log(`[run-complete] runId=${runId} done ale outputFiles puste lub brak — sprawdź logi VPS`)
   }
 
   return NextResponse.json({ ok: true })
