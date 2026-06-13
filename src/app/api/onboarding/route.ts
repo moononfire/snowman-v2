@@ -7,9 +7,8 @@ import { createSession } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
 import { eq, and, isNull } from 'drizzle-orm'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-
 export async function POST(req: NextRequest) {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
   let body: { sessionId: string; slug: string; password: string }
   try {
     body = await req.json()

@@ -6,8 +6,6 @@ import { eq } from 'drizzle-orm'
 import OnboardingForm from './OnboardingForm'
 import Link from 'next/link'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-
 const wrapperCls = 'min-h-screen flex items-center justify-center'
 const cardCls = 'p-8 rounded-lg shadow w-full max-w-sm border'
 
@@ -16,6 +14,7 @@ export default async function OnboardingPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
   const { session_id } = await searchParams
 
   if (!session_id || typeof session_id !== 'string') {
