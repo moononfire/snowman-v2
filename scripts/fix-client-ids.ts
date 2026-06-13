@@ -14,7 +14,7 @@ async function main() {
     const result = await sql.query(
       `UPDATE ${table} t SET client_id = c.id FROM clients c WHERE c.slug = t.client_id`
     )
-    console.log(`${table}: updated ${result.rowCount ?? 0} rows`)
+    console.log(`${table}: updated ${(result as unknown as { rowCount: number }).rowCount ?? 0} rows`)
   }
 
   console.log('Done.')
