@@ -5,15 +5,12 @@ import { db } from '@/db'
 import { clients } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-const resend = new Resend(process.env.RESEND_API_KEY!)
-
 function periodEndFromSubscription(sub: Stripe.Subscription): Date {
   const item = sub.items.data[0]
   return new Date(item.current_period_end * 1000)
 }
 
-async function sendOnboardingEmail(email: string, sessionId: string) {
+async function sendOnboardingEmail(resend: Resend, email: string, sessionId: string) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
   const link = `${appUrl}/onboarding?session_id=${sessionId}`
   await resend.emails.send({
@@ -25,6 +22,8 @@ async function sendOnboardingEmail(email: string, sessionId: string) {
 }
 
 export async function POST(req: NextRequest) {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+  const resend = new Resend(process.env.RESEND_API_KEY!)
   const rawBody = await req.text()
   const sig = req.headers.get('stripe-signature')
 
@@ -72,7 +71,7 @@ export async function POST(req: NextRequest) {
           } else {
             // Pending rekord już istnieje — wyślij link onboardingowy ponownie
             if (email) {
-              await sendOnboardingEmail(email, session.id)
+              await sendOnboardingEmail(resend, email, session.id)
             }
           }
           break
@@ -96,7 +95,7 @@ export async function POST(req: NextRequest) {
           onboardingCompletedAt: null,
         })
 
-        await sendOnboardingEmail(email, session.id)
+        await sendOnboardingEmail(resend, email, session.id)
         break
       }
 

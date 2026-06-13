@@ -5,9 +5,8 @@ import { clients, passwordResetTokens } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import crypto from 'crypto'
 
-const resend = new Resend(process.env.RESEND_API_KEY!)
-
 export async function POST(req: NextRequest) {
+  const resend = new Resend(process.env.RESEND_API_KEY!)
   let body: { email: string }
   try {
     body = await req.json()
