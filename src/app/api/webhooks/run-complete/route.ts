@@ -25,7 +25,7 @@ function parseCSVLine(line: string): string[] {
 }
 
 function parseCSV(text: string): Record<string, string>[] {
-  const lines = text.replace(/\r/g, '').trim().split('\n')
+  const lines = text.replace(/^﻿/, '').replace(/\r/g, '').trim().split('\n')
   if (lines.length < 2) return []
   const headers = parseCSVLine(lines[0])
   return lines.slice(1)
@@ -62,30 +62,39 @@ export async function POST(req: NextRequest) {
   if (status === 'done' && run.script === 'scrape_google_maps' && Array.isArray(outputFiles) && outputFiles.length > 0) {
     const clientRows = await db.select().from(clients).where(eq(clients.id, run.clientId)).limit(1)
     const slug = clientRows[0]?.slug
+    console.log(`[run-complete] runId=${runId} clientId=${run.clientId} slug=${slug} outputFiles=${JSON.stringify(outputFiles)}`)
     if (slug) {
       for (const filename of outputFiles as string[]) {
         try {
           const res = await vps.getFile(slug, filename)
-          if (!res.ok) continue
-          const rows = parseCSV(await res.text())
+          if (!res.ok) {
+            console.error(`[run-complete] getFile failed: ${res.status} ${res.statusText} file=${filename}`)
+            continue
+          }
+          const text = await res.text()
+          const rows = parseCSV(text)
+          console.log(`[run-complete] file=${filename} rows=${rows.length} firstRow=${JSON.stringify(rows[0])}`)
           const data = rows
-            .filter(r => r.phone)
+            .filter(r => r.name || r.phone)
             .map(r => ({
               clientId: run.clientId,
               firstName: r.name || '—',
               company: r.name || null,
-              phone: r.phone,
+              phone: r.phone || '',
               preCallNote: [r.address, r.city, r.country].filter(Boolean).join(', ') || null,
               tags: r.category_google || null,
               source: 'GOOGLE_SCRAPE' as const,
             }))
+          console.log(`[run-complete] inserting ${data.length} contacts from ${filename}`)
           if (data.length > 0) {
             await db.insert(contacts).values(data)
           }
-        } catch {
-          // nie blokuj — status runa już zaktualizowany
+        } catch (err) {
+          console.error(`[run-complete] error processing file=${filename}:`, err)
         }
       }
+    } else {
+      console.error(`[run-complete] no slug for clientId=${run.clientId}, skipping contact import`)
     }
   }
 
