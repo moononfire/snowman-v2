@@ -6,6 +6,7 @@ import { getSession } from '@/lib/auth'
 import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { PasswordForm } from './PasswordForm'
+import { SmtpForm } from './SmtpForm'
 
 export default async function SettingsPage() {
   const session = await getSession()
@@ -42,6 +43,15 @@ export default async function SettingsPage() {
         </div>
 
         <PasswordForm />
+      </div>
+
+      <div className="mt-6">
+        <SmtpForm
+          initial={{
+            email: (client?.config as Record<string, { email?: string; appPassword?: string }> | null)?.smtp?.email ?? '',
+            appPassword: (client?.config as Record<string, { email?: string; appPassword?: string }> | null)?.smtp?.appPassword ?? '',
+          }}
+        />
       </div>
     </div>
   )

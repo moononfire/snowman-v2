@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
   const tagsParam = req.nextUrl.searchParams.get('tags') ?? ''
   const hasCompanyParam = req.nextUrl.searchParams.get('hasCompany') ?? ''
   const hasEmailParam = req.nextUrl.searchParams.get('hasEmail') ?? ''
+  const hasWebsiteParam = req.nextUrl.searchParams.get('hasWebsite') ?? ''
   const calledParam = req.nextUrl.searchParams.get('called') ?? ''
   const source = VALID_SOURCES.has(sourceParam) ? sourceParam : null
 
@@ -27,6 +28,8 @@ export async function GET(req: NextRequest) {
   if (hasCompanyParam === 'no') conditions.push(isNull(contacts.company))
   if (hasEmailParam === 'yes') conditions.push(isNotNull(contacts.email))
   if (hasEmailParam === 'no') conditions.push(isNull(contacts.email))
+  if (hasWebsiteParam === 'yes') conditions.push(isNotNull(contacts.website))
+  if (hasWebsiteParam === 'no') conditions.push(isNull(contacts.website))
   if (search) {
     conditions.push(
       or(
@@ -109,6 +112,7 @@ export async function POST(req: NextRequest) {
       company: body.company || null,
       position: body.position || null,
       email: body.email || null,
+      website: body.website || null,
       preCallNote: body.preCallNote || null,
       postCallNote: body.postCallNote || null,
       tags: body.tags || null,

@@ -65,6 +65,7 @@ export const contacts = pgTable('contacts', {
   company: text('company'),
   position: text('position'),
   email: text('email'),
+  website: text('website'),
   preCallNote: text('pre_call_note'),
   postCallNote: text('post_call_note'),
   tags: text('tags'),

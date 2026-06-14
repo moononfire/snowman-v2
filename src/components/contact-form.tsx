@@ -15,6 +15,7 @@ type Contact = {
   company: string | null
   position: string | null
   email: string | null
+  website: string | null
   preCallNote: string | null
   postCallNote: string | null
   tags: string | null
@@ -36,6 +37,7 @@ export function ContactForm({
     company: contact?.company ?? '',
     position: contact?.position ?? '',
     email: contact?.email ?? '',
+    website: contact?.website ?? '',
     preCallNote: contact?.preCallNote ?? '',
     postCallNote: contact?.postCallNote ?? '',
     tags: contact?.tags ?? '',
@@ -95,9 +97,15 @@ export function ContactForm({
               <Input value={form.position} onChange={set('position')} className="mt-1" />
             </div>
           </div>
-          <div>
-            <Label>Email</Label>
-            <Input value={form.email} onChange={set('email')} className="mt-1" type="email" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Email</Label>
+              <Input value={form.email} onChange={set('email')} className="mt-1" type="email" />
+            </div>
+            <div>
+              <Label>Strona www</Label>
+              <Input value={form.website} onChange={set('website')} className="mt-1" placeholder="https://..." />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

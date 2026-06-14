@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Search, Check, Lock, Pencil, Trash2, X } from 'lucide-react'
+import { Search, Check, Lock, Pencil, Trash2, X, Globe } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { CONTACT_SOURCE_LABELS, CONTACT_SOURCE_COLORS, CALL_STATUS_LABELS, CALL_STATUS_COLORS, type CallStatus } from '@/lib/callTypes'
 
@@ -15,6 +15,7 @@ export type Contact = {
   company: string | null
   position: string | null
   email: string | null
+  website: string | null
   preCallNote: string | null
   postCallNote: string | null
   tags: string | null
@@ -37,6 +38,12 @@ interface ContactsBrowserProps {
 
 type SourceFilter = '' | 'MANUAL' | 'CSV_IMPORT' | 'GOOGLE_SCRAPE'
 type BoolFilter = '' | 'yes' | 'no'
+
+const WEBSITE_OPTIONS: { value: BoolFilter; label: string }[] = [
+  { value: '', label: 'Wszystkie' },
+  { value: 'yes', label: 'Z WWW' },
+  { value: 'no', label: 'Bez WWW' },
+]
 
 const SOURCE_OPTIONS: { value: SourceFilter; label: string }[] = [
   { value: '', label: 'Wszystkie' },
@@ -80,6 +87,7 @@ export function ContactsBrowser({
   const [tagsFilter, setTagsFilter] = useState('')
   const [companyFilter, setCompanyFilter] = useState<BoolFilter>('')
   const [emailFilter, setEmailFilter] = useState<BoolFilter>('')
+  const [websiteFilter, setWebsiteFilter] = useState<BoolFilter>('')
   const [calledFilter, setCalledFilter] = useState<BoolFilter>('')
   const [loading, setLoading] = useState(true)
 
@@ -93,6 +101,7 @@ export function ContactsBrowser({
     if (tagsFilter) params.set('tags', tagsFilter)
     if (companyFilter) params.set('hasCompany', companyFilter)
     if (emailFilter) params.set('hasEmail', emailFilter)
+    if (websiteFilter) params.set('hasWebsite', websiteFilter)
     if (calledFilter) params.set('called', calledFilter)
     const res = await fetch(`/api/contacts?${params}`)
     if (res.ok) {
@@ -102,7 +111,7 @@ export function ContactsBrowser({
     }
     setLoading(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, sourceFilter, tagsFilter, companyFilter, emailFilter, calledFilter, excludeIdsKey, refreshKey])
+  }, [search, sourceFilter, tagsFilter, companyFilter, emailFilter, websiteFilter, calledFilter, excludeIdsKey, refreshKey])
 
   useEffect(() => {
     const t = setTimeout(fetchContacts, 200)
@@ -132,13 +141,14 @@ export function ContactsBrowser({
     onSelectionChange(next)
   }
 
-  const hasActiveFilters = sourceFilter || tagsFilter || companyFilter || emailFilter || calledFilter
+  const hasActiveFilters = sourceFilter || tagsFilter || companyFilter || emailFilter || websiteFilter || calledFilter
 
   function clearFilters() {
     setSourceFilter('')
     setTagsFilter('')
     setCompanyFilter('')
     setEmailFilter('')
+    setWebsiteFilter('')
     setCalledFilter('')
   }
 
@@ -147,7 +157,7 @@ export function ContactsBrowser({
   const someSelected = !allSelected && availableContacts.some((c) => selected.has(c.id))
   const hasFilters = search || hasActiveFilters
   const showActions = !!(onEdit || onDelete || rowActions)
-  const colCount = 7 + (selectable ? 1 : 0) + (showActions ? 1 : 0)
+  const colCount = 8 + (selectable ? 1 : 0) + (showActions ? 1 : 0)
 
   return (
     <div>
@@ -190,6 +200,16 @@ export function ContactsBrowser({
             {EMAIL_OPTIONS.map((o) => (
               <button key={o.value} onClick={() => setEmailFilter(o.value)}
                 className={`px-2.5 py-1 rounded-full font-medium transition-colors ${emailFilter === o.value ? 'bg-foreground text-background' : 'bg-background border border-border text-muted-foreground hover:text-foreground'}`}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+
+          <span className="text-muted-foreground font-medium w-24">Strona www</span>
+          <div className="flex flex-wrap gap-1">
+            {WEBSITE_OPTIONS.map((o) => (
+              <button key={o.value} onClick={() => setWebsiteFilter(o.value)}
+                className={`px-2.5 py-1 rounded-full font-medium transition-colors ${websiteFilter === o.value ? 'bg-foreground text-background' : 'bg-background border border-border text-muted-foreground hover:text-foreground'}`}>
                 {o.label}
               </button>
             ))}
@@ -248,6 +268,7 @@ export function ContactsBrowser({
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Telefon</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Firma</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Email</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">WWW</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Źródło</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground max-w-[220px]">Notatka</th>
@@ -332,6 +353,24 @@ export function ContactsBrowser({
 
                   <td className="px-4 py-3 text-muted-foreground text-sm">
                     {c.email ?? <span className="text-border">—</span>}
+                  </td>
+
+                  <td className="px-4 py-3">
+                    {c.website ? (
+                      <a
+                        href={c.website.startsWith('http') ? c.website : `https://${c.website}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                        title={c.website}
+                      >
+                        <Globe className="h-3.5 w-3.5 shrink-0" />
+                        <span className="max-w-[120px] truncate">{c.website.replace(/^https?:\/\//, '')}</span>
+                      </a>
+                    ) : (
+                      <span className="text-border">—</span>
+                    )}
                   </td>
 
                   <td className="px-4 py-3">

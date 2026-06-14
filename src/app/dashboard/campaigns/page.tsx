@@ -25,7 +25,6 @@ export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
-  const [script, setScript] = useState('send_campaign')
   const [submitting, setSubmitting] = useState(false)
 
   async function loadCampaigns() {
@@ -41,7 +40,7 @@ export default function CampaignsPage() {
     await fetch('/api/campaigns', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, script, config: {} }),
+      body: JSON.stringify({ name, script: 'send_campaign', config: {} }),
     })
     setName('')
     setShowForm(false)
@@ -84,14 +83,6 @@ export default function CampaignsPage() {
               className="w-full border rounded px-3 py-2 text-sm"
               style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
             />
-            <input
-              value={script}
-              onChange={(e) => setScript(e.target.value)}
-              placeholder="Skrypt (np. send_campaign)"
-              required
-              className="w-full border rounded px-3 py-2 text-sm font-mono"
-              style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
-            />
             <div className="flex gap-2">
               <button type="submit" disabled={submitting} className="bg-blue-600 text-white px-4 py-2 rounded text-sm">
                 {submitting ? 'Tworzenie...' : 'Utwórz'}
@@ -117,7 +108,11 @@ export default function CampaignsPage() {
           <tbody>
             {campaigns.map((c) => (
               <tr key={c.id} className="table-row-hover" style={{ borderBottom: '1px solid var(--border)' }}>
-                <td className="px-4 py-3 font-medium">{c.name}</td>
+                <td className="px-4 py-3 font-medium">
+                  <Link href={`/dashboard/campaigns/${c.id}`} className="hover:underline text-foreground">
+                    {c.name}
+                  </Link>
+                </td>
                 <td className="px-4 py-3 font-mono" style={{ color: 'var(--muted-foreground)' }}>{c.script}</td>
                 <td className="px-4 py-3">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[c.status] ?? ''}`}>

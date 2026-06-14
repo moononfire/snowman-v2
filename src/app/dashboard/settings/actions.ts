@@ -1,11 +1,12 @@
 'use server'
 
 import { db } from '@/db'
-import { clientAuth } from '@/db/schema'
+import { clientAuth, clients } from '@/db/schema'
 import { getSession } from '@/lib/auth'
 import { eq } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 import { revalidatePath } from 'next/cache'
+import nodemailer from 'nodemailer'
 
 export async function changePasswordAction(_state: unknown, formData: FormData) {
   const session = await getSession()
@@ -28,4 +29,39 @@ export async function changePasswordAction(_state: unknown, formData: FormData) 
   await db.update(clientAuth).set({ passwordHash: hash }).where(eq(clientAuth.clientId, session.clientId))
   revalidatePath('/dashboard/settings')
   return { success: true }
+}
+
+export async function saveSmtpConfigAction(smtp: { email: string; appPassword: string }) {
+  const session = await getSession()
+  if (!session) return { success: false }
+
+  const clientRows = await db.select().from(clients).where(eq(clients.id, session.clientId)).limit(1)
+  const existing = (clientRows[0]?.config ?? {}) as Record<string, unknown>
+
+  await db
+    .update(clients)
+    .set({ config: { ...existing, smtp: { email: smtp.email, appPassword: smtp.appPassword } } })
+    .where(eq(clients.id, session.clientId))
+
+  revalidatePath('/dashboard/settings')
+  return { success: true }
+}
+
+export async function testSmtpConnectionAction(smtp: { email: string; appPassword: string }) {
+  const session = await getSession()
+  if (!session) return { success: false, message: 'Brak sesji' }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      auth: { user: smtp.email, pass: smtp.appPassword.replace(/\s/g, '') },
+    })
+    await transporter.verify()
+    return { success: true, message: 'Połączenie działa! Możesz wysyłać maile.' }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return { success: false, message: `Błąd: ${msg}` }
+  }
 }
