@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
+import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 
 type Campaign = {
   id: string
@@ -9,8 +10,14 @@ type Campaign = {
   status: string
   script: string
   config: Record<string, unknown>
+  listId: string | null
   lastRunId: string | null
   createdAt: string
+}
+
+type ListOption = {
+  id: string
+  name: string
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -21,18 +28,33 @@ const STATUS_COLORS: Record<string, string> = {
   paused: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
 }
 
+type CampSortField = 'name' | 'status'
+type SortDir = 'asc' | 'desc'
+
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [lists, setLists] = useState<ListOption[]>([])
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
+  const [selectedListId, setSelectedListId] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [sortField, setSortField] = useState<CampSortField>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   async function loadCampaigns() {
     const res = await fetch('/api/campaigns')
     if (res.ok) setCampaigns(await res.json())
   }
 
-  useEffect(() => { loadCampaigns() }, [])
+  async function loadLists() {
+    const res = await fetch('/api/lists')
+    if (res.ok) {
+      const data = await res.json()
+      setLists(data.map((l: { id: string; name: string }) => ({ id: l.id, name: l.name })))
+    }
+  }
+
+  useEffect(() => { loadCampaigns(); loadLists() }, [])
 
   async function createCampaign(e: React.FormEvent) {
     e.preventDefault()
@@ -40,9 +62,10 @@ export default function CampaignsPage() {
     await fetch('/api/campaigns', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, script: 'send_campaign', config: {} }),
+      body: JSON.stringify({ name, script: 'send_campaign', config: {}, listId: selectedListId || null }),
     })
     setName('')
+    setSelectedListId('')
     setShowForm(false)
     setSubmitting(false)
     loadCampaigns()
@@ -60,7 +83,7 @@ export default function CampaignsPage() {
   }
 
   return (
-    <div>
+    <div className="p-8 max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Kampanie</h1>
         <button
@@ -83,6 +106,17 @@ export default function CampaignsPage() {
               className="w-full border rounded px-3 py-2 text-sm"
               style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
             />
+            <select
+              value={selectedListId}
+              onChange={(e) => setSelectedListId(e.target.value)}
+              className="w-full border rounded px-3 py-2 text-sm"
+              style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
+            >
+              <option value="">— Lista kontaktów (opcjonalnie) —</option>
+              {lists.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
             <div className="flex gap-2">
               <button type="submit" disabled={submitting} className="bg-blue-600 text-white px-4 py-2 rounded text-sm">
                 {submitting ? 'Tworzenie...' : 'Utwórz'}
@@ -96,28 +130,102 @@ export default function CampaignsPage() {
       )}
 
       <div className="rounded-lg border overflow-hidden" style={{ background: 'var(--card)' }}>
+        <CampaignsTable
+          campaigns={campaigns}
+          lists={lists}
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={(field: CampSortField) => {
+            if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+            else { setSortField(field); setSortDir('asc') }
+          }}
+          onRun={runCampaign}
+          onDelete={deleteCampaign}
+        />
+      </div>
+    </div>
+  )
+}
+
+function CampaignSortIcon({ field, sortField, sortDir }: { field: CampSortField; sortField: CampSortField; sortDir: SortDir }) {
+  if (sortField !== field) return <ArrowUpDown className="h-3 w-3 opacity-40" />
+  return sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+}
+
+function CampaignsTable({ campaigns, lists, sortField, sortDir, onSort, onRun, onDelete }: {
+  campaigns: Campaign[]
+  lists: ListOption[]
+  sortField: CampSortField
+  sortDir: SortDir
+  onSort: (field: CampSortField) => void
+  onRun: (id: string) => void
+  onDelete: (id: string) => void
+}) {
+  const listsById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const l of lists) map.set(l.id, l.name)
+    return map
+  }, [lists])
+  const sorted = useMemo(() => {
+    return [...campaigns].sort((a, b) => {
+      const va = a[sortField].toLowerCase()
+      const vb = b[sortField].toLowerCase()
+      if (va < vb) return sortDir === 'asc' ? -1 : 1
+      if (va > vb) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [campaigns, sortField, sortDir])
+
+  const columns: [CampSortField, string][] = [
+    ['name', 'Nazwa'],
+    ['status', 'Status'],
+  ]
+
+  return (
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--muted)' }}>
-              <th className="text-left px-4 py-2 font-medium" style={{ color: 'var(--muted-foreground)' }}>Nazwa</th>
-              <th className="text-left px-4 py-2 font-medium" style={{ color: 'var(--muted-foreground)' }}>Skrypt</th>
-              <th className="text-left px-4 py-2 font-medium" style={{ color: 'var(--muted-foreground)' }}>Status</th>
+              {columns.map(([field, label]) => (
+                <th
+                  key={field}
+                  onClick={() => onSort(field)}
+                  className="text-left px-4 py-2 font-medium cursor-pointer select-none hover:text-[var(--foreground)] transition-colors"
+                  style={{ color: 'var(--muted-foreground)' }}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {label}
+                    <CampaignSortIcon field={field} sortField={sortField} sortDir={sortDir} />
+                  </span>
+                </th>
+              ))}
+              <th
+                className="text-left px-4 py-2 font-medium"
+                style={{ color: 'var(--muted-foreground)' }}
+              >
+                Lista
+              </th>
               <th className="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody>
-            {campaigns.map((c) => (
+            {sorted.map((c) => (
               <tr key={c.id} className="table-row-hover" style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-4 py-3 font-medium">
                   <Link href={`/dashboard/campaigns/${c.id}`} className="hover:underline text-foreground">
                     {c.name}
                   </Link>
                 </td>
-                <td className="px-4 py-3 font-mono" style={{ color: 'var(--muted-foreground)' }}>{c.script}</td>
                 <td className="px-4 py-3">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[c.status] ?? ''}`}>
                     {c.status}
                   </span>
+                </td>
+                <td className="px-4 py-3 text-sm" style={{ color: 'var(--muted-foreground)' }}>
+                  {c.listId ? (
+                    <Link href={`/dashboard/lists/${c.listId}`} className="hover:underline">
+                      {listsById.get(c.listId) ?? '—'}
+                    </Link>
+                  ) : '—'}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2 justify-end">
@@ -127,13 +235,13 @@ export default function CampaignsPage() {
                       </Link>
                     )}
                     <button
-                      onClick={() => runCampaign(c.id)}
+                      onClick={() => onRun(c.id)}
                       className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700"
                     >
                       Uruchom
                     </button>
                     <button
-                      onClick={() => deleteCampaign(c.id)}
+                      onClick={() => onDelete(c.id)}
                       className="text-red-500 hover:underline text-xs"
                     >
                       Usuń
@@ -149,7 +257,5 @@ export default function CampaignsPage() {
             )}
           </tbody>
         </table>
-      </div>
-    </div>
   )
 }

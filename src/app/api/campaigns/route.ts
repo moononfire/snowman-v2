@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   const session = await getSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { name, script, config } = await req.json()
+  const { name, script, config, listId } = await req.json()
   if (!name) return NextResponse.json({ error: 'Missing name' }, { status: 400 })
 
   const rows = await db
@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
       name,
       script: script ?? 'send_campaign',
       config: config ?? {},
+      listId: listId ?? null,
       status: 'draft',
     })
     .returning()

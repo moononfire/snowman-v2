@@ -51,6 +51,7 @@ export const campaigns = pgTable('campaigns', {
   status: text('status').default('draft').notNull(),
   script: text('script').default('send_campaign').notNull(),
   config: jsonb('config').default({}).notNull(),
+  listId: text('list_id').references(() => lists.id),
   lastRunId: text('last_run_id').references(() => runs.id),
   scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

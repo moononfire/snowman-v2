@@ -22,7 +22,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!run.vpsRunId) return new NextResponse('', { status: 200 })
 
   const tail = req.nextUrl.searchParams.get('tail')
-  const vpsRes = await vps.getLogs(run.vpsRunId, tail ? parseInt(tail) : undefined)
+  let vpsRes: Response
+  try {
+    vpsRes = await vps.getLogs(run.vpsRunId, tail ? parseInt(tail) : undefined)
+  } catch {
+    return new NextResponse('Nie udało się pobrać logów z VPS', { status: 502 })
+  }
+
+  if (!vpsRes.ok) {
+    console.error(`[logs] VPS returned ${vpsRes.status} for vpsRunId=${run.vpsRunId}`)
+    return new NextResponse(`VPS error: ${vpsRes.status}`, { status: 502 })
+  }
 
   const text = await vpsRes.text()
   return new NextResponse(text, {

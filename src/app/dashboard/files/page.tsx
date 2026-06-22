@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 
 type VpsFile = {
   name: string
@@ -14,9 +15,14 @@ function formatBytes(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+type FileSortField = 'name' | 'sizeBytes' | 'modifiedAt'
+type SortDir = 'asc' | 'desc'
+
 export default function FilesPage() {
   const [files, setFiles] = useState<VpsFile[]>([])
   const [loading, setLoading] = useState(true)
+  const [sortField, setSortField] = useState<FileSortField>('modifiedAt')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   async function loadFiles() {
     setLoading(true)
@@ -33,6 +39,32 @@ export default function FilesPage() {
     loadFiles()
   }
 
+  function toggleSort(field: FileSortField) {
+    if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortField(field); setSortDir('asc') }
+  }
+
+  function SortIcon({ field }: { field: FileSortField }) {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 opacity-40" />
+    return sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+  }
+
+  const sorted = useMemo(() => {
+    return [...files].sort((a, b) => {
+      const va = a[sortField]
+      const vb = b[sortField]
+      if (va < vb) return sortDir === 'asc' ? -1 : 1
+      if (va > vb) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [files, sortField, sortDir])
+
+  const columns: [FileSortField, string][] = [
+    ['name', 'Nazwa pliku'],
+    ['sizeBytes', 'Rozmiar'],
+    ['modifiedAt', 'Zmodyfikowany'],
+  ]
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -47,14 +79,24 @@ export default function FilesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--muted)' }}>
-                <th className="text-left px-4 py-2 font-medium" style={{ color: 'var(--muted-foreground)' }}>Nazwa pliku</th>
-                <th className="text-left px-4 py-2 font-medium" style={{ color: 'var(--muted-foreground)' }}>Rozmiar</th>
-                <th className="text-left px-4 py-2 font-medium" style={{ color: 'var(--muted-foreground)' }}>Zmodyfikowany</th>
+                {columns.map(([field, label]) => (
+                  <th
+                    key={field}
+                    onClick={() => toggleSort(field)}
+                    className="text-left px-4 py-2 font-medium cursor-pointer select-none hover:text-[var(--foreground)] transition-colors"
+                    style={{ color: 'var(--muted-foreground)' }}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {label}
+                      <SortIcon field={field} />
+                    </span>
+                  </th>
+                ))}
                 <th className="px-4 py-2"></th>
               </tr>
             </thead>
             <tbody>
-              {files.map((f) => (
+              {sorted.map((f) => (
                 <tr key={f.name} className="table-row-hover" style={{ borderBottom: '1px solid var(--border)' }}>
                   <td className="px-4 py-3 font-mono">{f.name}</td>
                   <td className="px-4 py-3" style={{ color: 'var(--muted-foreground)' }}>{formatBytes(f.sizeBytes)}</td>

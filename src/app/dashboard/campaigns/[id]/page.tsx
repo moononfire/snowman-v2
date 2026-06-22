@@ -26,7 +26,13 @@ type Campaign = {
   id: string
   name: string
   status: string
+  listId: string | null
   config: { steps?: Step[] }
+}
+
+type ListOption = {
+  id: string
+  name: string
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -201,6 +207,8 @@ export default function CampaignDetailPage() {
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [steps, setSteps] = useState<Step[]>([])
   const [name, setName] = useState('')
+  const [listId, setListId] = useState('')
+  const [lists, setLists] = useState<ListOption[]>([])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -211,11 +219,17 @@ export default function CampaignDetailPage() {
     const data: Campaign = await res.json()
     setCampaign(data)
     setName(data.name)
+    setListId(data.listId ?? '')
     setSteps(data.config?.steps ?? [])
     setLoading(false)
   }, [id, router])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+    fetch('/api/lists').then((r) => r.json()).then((data) => {
+      setLists(data.map((l: { id: string; name: string }) => ({ id: l.id, name: l.name })))
+    })
+  }, [load])
 
   function updateStep(index: number, updated: Step) {
     setSteps((prev) => prev.map((s, i) => (i === index ? updated : s)))
@@ -249,7 +263,7 @@ export default function CampaignDetailPage() {
     await fetch(`/api/campaigns/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, config: { ...(campaign?.config ?? {}), steps } }),
+      body: JSON.stringify({ name, listId: listId || null, config: { ...(campaign?.config ?? {}), steps } }),
     })
     setSaving(false)
     setSaved(true)
@@ -295,6 +309,21 @@ export default function CampaignDetailPage() {
             }
           </Button>
         </div>
+      </div>
+
+      {/* List selector */}
+      <div className="mb-8">
+        <label className="text-xs font-medium text-muted-foreground mb-1 block">Lista kontaktów</label>
+        <select
+          value={listId}
+          onChange={(e) => setListId(e.target.value)}
+          className="w-full border border-border rounded-md px-3 py-2 text-sm bg-card text-foreground"
+        >
+          <option value="">— Brak listy —</option>
+          {lists.map((l) => (
+            <option key={l.id} value={l.id}>{l.name}</option>
+          ))}
+        </select>
       </div>
 
       {/* Steps */}

@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Play, UserPlus, Trash2, ArrowLeft } from 'lucide-react'
+import { Play, UserPlus, Trash2, ArrowLeft, ArrowUp, ArrowDown, ArrowUpDown, LinkIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AddContactsModal } from '@/components/add-contacts-modal'
 import { CALL_STATUS_LABELS, CALL_STATUS_COLORS } from '@/lib/callTypes'
@@ -33,10 +33,23 @@ type ListData = {
   listContacts: ListContact[]
 }
 
+type CampaignOption = {
+  id: string
+  name: string
+  listId: string | null
+}
+
+type ListSortField = 'name' | 'phone' | 'status' | 'notes'
+type SortDir = 'asc' | 'desc'
+
 export default function ListDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [list, setList] = useState<ListData | null>(null)
   const [showAddContacts, setShowAddContacts] = useState(false)
+  const [showCampaignPicker, setShowCampaignPicker] = useState(false)
+  const [campaigns, setCampaigns] = useState<CampaignOption[]>([])
+  const [sortField, setSortField] = useState<ListSortField>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   const fetchList = useCallback(async () => {
     const res = await fetch(`/api/lists/${id}`)
@@ -44,6 +57,42 @@ export default function ListDetailPage() {
   }, [id])
 
   useEffect(() => { fetchList() }, [fetchList])
+
+  const sortedListContacts = useMemo(() => {
+    if (!list) return []
+    function getSortValue(lc: ListContact, field: ListSortField): string {
+      switch (field) {
+        case 'name': return `${lc.contact.firstName} ${lc.contact.lastName ?? ''}`.toLowerCase()
+        case 'phone': return lc.contact.phone
+        case 'status': return lc.status
+        case 'notes': return (lc.notes ?? '').toLowerCase()
+      }
+    }
+    return [...list.listContacts].sort((a, b) => {
+      const va = getSortValue(a, sortField)
+      const vb = getSortValue(b, sortField)
+      if (va < vb) return sortDir === 'asc' ? -1 : 1
+      if (va > vb) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [list, sortField, sortDir])
+
+  async function loadCampaigns() {
+    const res = await fetch('/api/campaigns')
+    if (res.ok) {
+      const data = await res.json()
+      setCampaigns(data.map((c: CampaignOption) => ({ id: c.id, name: c.name, listId: c.listId })))
+    }
+  }
+
+  async function attachToCampaign(campaignId: string) {
+    await fetch(`/api/campaigns/${campaignId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ listId: id }),
+    })
+    setShowCampaignPicker(false)
+  }
 
   async function removeContact(contactId: string) {
     await fetch(`/api/lists/${id}/contacts/${contactId}`, { method: 'DELETE' })
@@ -56,6 +105,16 @@ export default function ListDetailPage() {
   const called = list.listContacts.filter((lc) => lc.status !== 'NOT_CALLED').length
   const nextUncalled = list.listContacts.find((lc) => lc.status === 'NOT_CALLED')
   const existingContactIds = list.listContacts.map((lc) => lc.contactId)
+
+  function toggleSort(field: ListSortField) {
+    if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortField(field); setSortDir('asc') }
+  }
+
+  function SortIcon({ field }: { field: ListSortField }) {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 opacity-40" />
+    return sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+  }
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -71,6 +130,10 @@ export default function ListDetailPage() {
           <p className="text-sm text-muted-foreground mt-1">{called}/{total} zadzwoniono</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => { loadCampaigns(); setShowCampaignPicker(true) }}>
+            <LinkIcon className="h-4 w-4 mr-2" />
+            Przypisz do kampanii
+          </Button>
           <Button variant="outline" onClick={() => setShowAddContacts(true)}>
             <UserPlus className="h-4 w-4 mr-2" />
             Dodaj kontakty
@@ -91,10 +154,23 @@ export default function ListDetailPage() {
           <thead className="bg-muted border-b border-border">
             <tr>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">#</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Kontakt</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Telefon</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Notatka</th>
+              {([
+                ['name', 'Kontakt'],
+                ['phone', 'Telefon'],
+                ['status', 'Status'],
+                ['notes', 'Notatka'],
+              ] as [ListSortField, string][]).map(([field, label]) => (
+                <th
+                  key={field}
+                  onClick={() => toggleSort(field)}
+                  className="text-left px-4 py-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {label}
+                    <SortIcon field={field} />
+                  </span>
+                </th>
+              ))}
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
@@ -106,7 +182,7 @@ export default function ListDetailPage() {
                 </td>
               </tr>
             )}
-            {list.listContacts.map((lc, i) => (
+            {sortedListContacts.map((lc, i) => (
               <tr key={lc.id} className="hover:bg-muted/50">
                 <td className="px-4 py-3 text-muted-foreground">{i + 1}</td>
                 <td className="px-4 py-3 font-medium text-foreground">
@@ -138,6 +214,38 @@ export default function ListDetailPage() {
           onClose={() => setShowAddContacts(false)}
           onAdded={() => { setShowAddContacts(false); fetchList() }}
         />
+      )}
+
+      {showCampaignPicker && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowCampaignPicker(false)}>
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Przypisz listę do kampanii</h2>
+            {campaigns.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Brak kampanii. Utwórz kampanię najpierw.</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {campaigns.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => attachToCampaign(c.id)}
+                    className="w-full text-left px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors"
+                  >
+                    <span className="font-medium text-foreground">{c.name}</span>
+                    {c.listId === id && (
+                      <span className="ml-2 text-xs text-green-600">(już przypisana)</span>
+                    )}
+                    {c.listId && c.listId !== id && (
+                      <span className="ml-2 text-xs text-muted-foreground">(ma inną listę)</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="mt-4 flex justify-end">
+              <Button variant="outline" onClick={() => setShowCampaignPicker(false)}>Zamknij</Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

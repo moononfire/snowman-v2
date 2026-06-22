@@ -1,8 +1,11 @@
 import Link from 'next/link'
 import { LogoutButton } from './LogoutButton'
 import { SidebarNav } from '@/components/SidebarNav'
+import { getSession } from '@/lib/auth'
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const session = await getSession()
+
   return (
     <div className="min-h-screen flex" style={{ background: 'var(--background)' }}>
       <aside
@@ -13,7 +16,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }}
       >
         <div className="px-5 py-5 flex items-center gap-3" style={{ borderBottom: '1px solid var(--border)' }}>
-          <Link href="/dashboard" className="flex items-center gap-3 group">
+          <Link href="/dashboard/campaigns" className="flex items-center gap-3 group">
             <div
               className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold group-hover:opacity-80 transition-opacity"
               style={{ background: 'var(--accent)' }}
@@ -28,7 +31,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <SidebarNav />
 
-        <div className="px-3 py-4" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="px-3 py-4 space-y-3" style={{ borderTop: '1px solid var(--border)' }}>
+          {session && (
+            <p className="px-3 text-xs" style={{ color: 'var(--muted-foreground)' }}>
+              Zalogowany jako <span className="font-semibold">{session.clientSlug}</span>
+            </p>
+          )}
           <LogoutButton />
         </div>
       </aside>

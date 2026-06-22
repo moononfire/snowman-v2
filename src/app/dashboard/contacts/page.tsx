@@ -9,6 +9,7 @@ import { ContactsBrowser, Contact } from '@/components/contacts-browser'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import NewGoogleScrapeButton from '@/app/dashboard/runs/NewGoogleScrapeButton'
 
 export default function ContactsPage() {
   const router = useRouter()
@@ -53,10 +54,11 @@ export default function ContactsPage() {
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Kontakty</h1>
         <div className="flex gap-2">
+          <NewGoogleScrapeButton />
           <Button variant="outline" onClick={() => setShowImport(true)}>
             <Upload className="h-4 w-4 mr-2" />
             Importuj CSV

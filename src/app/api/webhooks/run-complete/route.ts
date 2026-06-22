@@ -104,6 +104,8 @@ export async function POST(req: NextRequest) {
               firstName: r.name || '—',
               company: r.name || null,
               phone: r.phone || '',
+              email: r.email || null,
+              website: r.website || null,
               preCallNote: [r.address, r.city, r.country].filter(Boolean).join(', ') || null,
               tags: r.category_google || null,
               source: 'GOOGLE_SCRAPE' as const,

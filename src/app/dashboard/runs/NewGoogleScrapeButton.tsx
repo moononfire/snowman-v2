@@ -42,6 +42,8 @@ export default function NewGoogleScrapeButton() {
   const [coordsNe, setCoordsNe] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [drawMode, setDrawMode] = useState(false)
+  const [isDrawing, setIsDrawing] = useState(false)
 
   const mapDivRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -51,6 +53,9 @@ export default function NewGoogleScrapeButton() {
   const searchRef = useRef<HTMLInputElement>(null)
   const centerRef = useRef<{ lat: number; lng: number } | null>(null)
   const radiusRef = useRef(5)
+  const drawStartRef = useRef<{ lat: number; lng: number } | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const drawListenersRef = useRef<any[]>([])
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
 
@@ -123,6 +128,95 @@ export default function NewGoogleScrapeButton() {
     if (centerRef.current) applyBounds(centerRef.current.lat, centerRef.current.lng, km)
   }
 
+  function clearDrawListeners() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const G = (window as any).google?.maps
+    if (G) {
+      drawListenersRef.current.forEach((l) => G.event.removeListener(l))
+    }
+    drawListenersRef.current = []
+  }
+
+  function updateDrawRect(start: { lat: number; lng: number }, end: { lat: number; lng: number }) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const G = (window as any).google.maps
+    const south = Math.min(start.lat, end.lat)
+    const north = Math.max(start.lat, end.lat)
+    const west = Math.min(start.lng, end.lng)
+    const east = Math.max(start.lng, end.lng)
+    const bounds = new G.LatLngBounds({ lat: south, lng: west }, { lat: north, lng: east })
+
+    if (rectRef.current) {
+      rectRef.current.setBounds(bounds)
+    } else {
+      rectRef.current = new G.Rectangle({
+        bounds,
+        fillColor: '#3b82f6',
+        fillOpacity: 0.15,
+        strokeColor: '#2563eb',
+        strokeWeight: 2,
+        map: mapRef.current,
+      })
+    }
+
+    setCoordsSw(`${south.toFixed(6)},${west.toFixed(6)}`)
+    setCoordsNe(`${north.toFixed(6)},${east.toFixed(6)}`)
+  }
+
+  function enableDrawMode() {
+    if (!mapRef.current) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const G = (window as any).google.maps
+    const map = mapRef.current
+
+    map.setOptions({ draggable: false })
+
+    const downListener = G.event.addListener(map, 'mousedown', (e: { latLng: { lat: () => number; lng: () => number } }) => {
+      const start = { lat: e.latLng.lat(), lng: e.latLng.lng() }
+      drawStartRef.current = start
+      setIsDrawing(true)
+
+      if (rectRef.current) {
+        rectRef.current.setMap(null)
+        rectRef.current = null
+      }
+    })
+
+    const moveListener = G.event.addListener(map, 'mousemove', (e: { latLng: { lat: () => number; lng: () => number } }) => {
+      if (!drawStartRef.current) return
+      updateDrawRect(drawStartRef.current, { lat: e.latLng.lat(), lng: e.latLng.lng() })
+    })
+
+    const upListener = G.event.addListener(map, 'mouseup', () => {
+      if (drawStartRef.current) {
+        drawStartRef.current = null
+        setIsDrawing(false)
+        setCenter({ lat: 0, lng: 0 })
+      }
+    })
+
+    drawListenersRef.current = [downListener, moveListener, upListener]
+  }
+
+  function disableDrawMode() {
+    clearDrawListeners()
+    drawStartRef.current = null
+    setIsDrawing(false)
+    if (mapRef.current) {
+      mapRef.current.setOptions({ draggable: true })
+    }
+  }
+
+  function toggleDrawMode() {
+    const next = !drawMode
+    setDrawMode(next)
+    if (next) {
+      enableDrawMode()
+    } else {
+      disableDrawMode()
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!query.trim()) { setError('Wpisz frazę wyszukiwania'); return }
@@ -154,6 +248,8 @@ export default function NewGoogleScrapeButton() {
   }
 
   function handleClose() {
+    disableDrawMode()
+    setDrawMode(false)
     setOpen(false)
     setError('')
     setCenter(null)
@@ -168,7 +264,7 @@ export default function NewGoogleScrapeButton() {
         onClick={() => setOpen(true)}
         className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700"
       >
-        + Nowy scraping Google
+        + Pozyskaj kontakty
       </button>
 
       {open && (
@@ -192,18 +288,49 @@ export default function NewGoogleScrapeButton() {
 
                 {apiKey ? (
                   <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
-                      Obszar <span className="font-normal" style={{ color: 'var(--muted-foreground)' }}>(opcjonalnie)</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+                        Obszar <span className="font-normal" style={{ color: 'var(--muted-foreground)' }}>(opcjonalnie)</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={toggleDrawMode}
+                        className={`text-xs px-2 py-1 rounded border transition-colors ${
+                          drawMode
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'border-gray-300 hover:bg-gray-100'
+                        }`}
+                        style={drawMode ? undefined : { color: 'var(--foreground)' }}
+                      >
+                        {drawMode ? '✎ Rysuję na mapie' : '✎ Zaznacz na mapie'}
+                      </button>
+                    </div>
                     <input
                       ref={searchRef}
                       placeholder="Wyszukaj miasto lub region..."
                       className="w-full border rounded px-3 py-2 text-sm mb-2"
-                      style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
+                      style={{
+                        background: 'var(--muted)',
+                        color: 'var(--foreground)',
+                        display: drawMode ? 'none' : undefined,
+                      }}
                     />
-                    <div ref={mapDivRef} className="w-full h-64 rounded border" style={{ background: 'var(--muted)' }} />
+                    <div
+                      ref={mapDivRef}
+                      className="w-full h-64 rounded border"
+                      style={{
+                        background: 'var(--muted)',
+                        cursor: drawMode ? 'crosshair' : undefined,
+                      }}
+                    />
 
-                    {center ? (
+                    {drawMode && !coordsSw && (
+                      <p className="text-xs mt-1 text-blue-600">
+                        {isDrawing ? 'Przeciągnij aby zaznaczyć obszar...' : 'Kliknij i przeciągnij na mapie aby zaznaczyć prostokątny obszar.'}
+                      </p>
+                    )}
+
+                    {center && !drawMode ? (
                       <div className="mt-3 space-y-2">
                         <div className="flex items-center justify-between">
                           <label className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Promień</label>
@@ -219,11 +346,18 @@ export default function NewGoogleScrapeButton() {
                           <span>NE {coordsNe}</span>
                         </div>
                       </div>
-                    ) : (
+                    ) : coordsSw && coordsNe ? (
+                      <div className="mt-3">
+                        <div className="rounded p-2 flex gap-6 text-xs font-mono" style={{ background: 'var(--muted)', color: 'var(--muted-foreground)' }}>
+                          <span>SW {coordsSw}</span>
+                          <span>NE {coordsNe}</span>
+                        </div>
+                      </div>
+                    ) : !drawMode ? (
                       <p className="text-xs mt-1" style={{ color: 'var(--muted-foreground)' }}>
-                        Wyszukaj miasto aby zaznaczyć obszar. Bez obszaru skrypt przeszuka globalnie (max 60 wyników).
+                        Wyszukaj miasto lub zaznacz obszar na mapie. Bez obszaru skrypt przeszuka globalnie (max 60 wyników).
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 ) : (
                   <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">

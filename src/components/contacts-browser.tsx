@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Search, Check, Lock, Pencil, Trash2, X, Globe } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Search, Check, Lock, Pencil, Trash2, X, Globe, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { CONTACT_SOURCE_LABELS, CONTACT_SOURCE_COLORS, CALL_STATUS_LABELS, CALL_STATUS_COLORS, type CallStatus } from '@/lib/callTypes'
 
@@ -20,9 +20,13 @@ export type Contact = {
   postCallNote: string | null
   tags: string | null
   source: ContactSource
+  createdAt: string
   listContacts: { status: CallStatus; notes: string | null; calledAt: string | null }[]
   _count?: { listContacts: number }
 }
+
+type SortField = 'name' | 'phone' | 'company' | 'email' | 'website' | 'source' | 'status' | 'note' | 'createdAt'
+type SortDir = 'asc' | 'desc'
 
 interface ContactsBrowserProps {
   selectable?: boolean
@@ -90,6 +94,8 @@ export function ContactsBrowser({
   const [websiteFilter, setWebsiteFilter] = useState<BoolFilter>('')
   const [calledFilter, setCalledFilter] = useState<BoolFilter>('')
   const [loading, setLoading] = useState(true)
+  const [sortField, setSortField] = useState<SortField>('createdAt')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   const excludeIdsKey = excludeIds.join(',')
 
@@ -157,7 +163,47 @@ export function ContactsBrowser({
   const someSelected = !allSelected && availableContacts.some((c) => selected.has(c.id))
   const hasFilters = search || hasActiveFilters
   const showActions = !!(onEdit || onDelete || rowActions)
-  const colCount = 8 + (selectable ? 1 : 0) + (showActions ? 1 : 0)
+  const colCount = 9 + (selectable ? 1 : 0) + (showActions ? 1 : 0)
+
+  function toggleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortDir('asc')
+    }
+  }
+
+  function SortIcon({ field }: { field: SortField }) {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 opacity-40" />
+    return sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+  }
+
+  function getContactSortValue(c: Contact, field: SortField): string {
+    switch (field) {
+      case 'name': return `${c.firstName} ${c.lastName ?? ''}`.toLowerCase()
+      case 'phone': return c.phone
+      case 'company': return (c.company ?? '').toLowerCase()
+      case 'email': return (c.email ?? '').toLowerCase()
+      case 'website': return (c.website ?? '').toLowerCase()
+      case 'source': return c.source
+      case 'status': return c.listContacts[0]?.status ?? ''
+      case 'note': return (c.listContacts[0]?.notes ?? c.postCallNote ?? c.preCallNote ?? '').toLowerCase()
+      case 'createdAt': return c.createdAt ?? ''
+    }
+  }
+
+  const sortedContacts = useMemo(() => {
+    const sorted = [...contacts].sort((a, b) => {
+      const va = getContactSortValue(a, sortField)
+      const vb = getContactSortValue(b, sortField)
+      if (va < vb) return sortDir === 'asc' ? -1 : 1
+      if (va > vb) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+    return sorted
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contacts, sortField, sortDir])
 
   return (
     <div>
@@ -244,8 +290,8 @@ export function ContactsBrowser({
       </div>
 
       {/* Table */}
-      <div className="bg-card rounded-lg border border-border overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-card rounded-lg border border-border overflow-x-auto">
+        <table className="w-full text-sm min-w-[1100px]">
           <thead className="bg-muted border-b border-border">
             <tr>
               {selectable && (
@@ -264,14 +310,28 @@ export function ContactsBrowser({
                   </button>
                 </th>
               )}
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Imię i nazwisko</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Telefon</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Firma</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Email</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">WWW</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Źródło</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground max-w-[220px]">Notatka</th>
+              {([
+                ['name', 'Imię i nazwisko'],
+                ['phone', 'Telefon'],
+                ['company', 'Firma'],
+                ['email', 'Email'],
+                ['website', 'WWW'],
+                ['source', 'Źródło'],
+                ['status', 'Status'],
+                ['note', 'Notatka'],
+                ['createdAt', 'Dodano'],
+              ] as [SortField, string][]).map(([field, label]) => (
+                <th
+                  key={field}
+                  onClick={() => toggleSort(field)}
+                  className={`text-left px-4 py-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors${field === 'note' ? ' max-w-[220px]' : ''}`}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {label}
+                    <SortIcon field={field} />
+                  </span>
+                </th>
+              ))}
               {showActions && <th className="px-4 py-3 w-20" />}
             </tr>
           </thead>
@@ -290,7 +350,7 @@ export function ContactsBrowser({
                 </td>
               </tr>
             )}
-            {contacts.map((c) => {
+            {sortedContacts.map((c) => {
               const occupied = isOccupied(c)
               const lastNote = c.listContacts[0]?.notes ?? c.postCallNote ?? c.preCallNote
               return (
@@ -391,6 +451,10 @@ export function ContactsBrowser({
 
                   <td className="px-4 py-3 text-muted-foreground text-xs max-w-[220px] truncate">
                     {lastNote ?? <span className="text-border">—</span>}
+                  </td>
+
+                  <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap">
+                    {c.createdAt ? new Date(c.createdAt).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}
                   </td>
 
                   {showActions && (

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { campaigns, runs } from '@/db/schema'
+import { campaigns, runs, listContacts, contacts } from '@/db/schema'
 import { getSession } from '@/lib/auth'
 import { vps } from '@/lib/vpsClient'
 import { and, eq } from 'drizzle-orm'
@@ -21,7 +21,25 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   const campaign = rows[0]
   const runId = randomUUID()
-  const params_ = campaign.config as Record<string, unknown>
+  const params_: Record<string, unknown> = { ...(campaign.config as Record<string, unknown>) }
+
+  if (campaign.listId) {
+    const contactRows = await db
+      .select({
+        firstName: contacts.firstName,
+        lastName: contacts.lastName,
+        phone: contacts.phone,
+        email: contacts.email,
+        company: contacts.company,
+        website: contacts.website,
+      })
+      .from(listContacts)
+      .innerJoin(contacts, eq(listContacts.contactId, contacts.id))
+      .where(eq(listContacts.listId, campaign.listId))
+
+    params_.contacts = contactRows
+    params_.listId = campaign.listId
+  }
 
   await db.insert(runs).values({
     id: runId,
