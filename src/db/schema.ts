@@ -1,4 +1,4 @@
-import { pgTable, text, jsonb, timestamp, integer, index, uniqueIndex } from 'drizzle-orm/pg-core'
+import { pgTable, text, jsonb, timestamp, integer, real, index, uniqueIndex } from 'drizzle-orm/pg-core'
 
 export const clients = pgTable('clients', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -67,10 +67,20 @@ export const contacts = pgTable('contacts', {
   position: text('position'),
   email: text('email'),
   website: text('website'),
+  city: text('city'),
   preCallNote: text('pre_call_note'),
   postCallNote: text('post_call_note'),
   tags: text('tags'),
   source: text('source').default('MANUAL').notNull(),
+  googlePlaceId: text('google_place_id'),
+  googleMapsUrl: text('google_maps_url'),
+  latitude: real('latitude'),
+  longitude: real('longitude'),
+  rating: real('rating'),
+  reviewCount: integer('review_count'),
+  businessStatus: text('business_status'),
+  openingHours: jsonb('opening_hours'),
+  address: text('address'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })

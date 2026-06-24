@@ -15,6 +15,8 @@ type GoogleContact = {
   position?: string
   stanowisko?: string
   email?: string
+  city?: string
+  miasto?: string
   note?: string
   tags?: string
 }
@@ -39,6 +41,7 @@ export async function POST(req: NextRequest) {
       company: r.company || r.firma || null,
       position: r.position || r.stanowisko || null,
       email: r.email || null,
+      city: r.city || r.miasto || null,
       preCallNote: r.note || null,
       tags: r.tags || null,
       source: 'GOOGLE_SCRAPE' as const,

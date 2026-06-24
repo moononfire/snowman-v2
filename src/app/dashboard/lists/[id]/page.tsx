@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Play, UserPlus, Trash2, ArrowLeft, ArrowUp, ArrowDown, ArrowUpDown, LinkIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -39,16 +39,17 @@ type CampaignOption = {
   listId: string | null
 }
 
-type ListSortField = 'name' | 'phone' | 'status' | 'notes'
+type ListSortField = 'order' | 'name' | 'phone' | 'status' | 'notes'
 type SortDir = 'asc' | 'desc'
 
 export default function ListDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
   const [list, setList] = useState<ListData | null>(null)
   const [showAddContacts, setShowAddContacts] = useState(false)
   const [showCampaignPicker, setShowCampaignPicker] = useState(false)
   const [campaigns, setCampaigns] = useState<CampaignOption[]>([])
-  const [sortField, setSortField] = useState<ListSortField>('name')
+  const [sortField, setSortField] = useState<ListSortField>('order')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   const fetchList = useCallback(async () => {
@@ -60,7 +61,11 @@ export default function ListDetailPage() {
 
   const sortedListContacts = useMemo(() => {
     if (!list) return []
-    function getSortValue(lc: ListContact, field: ListSortField): string {
+    if (sortField === 'order') {
+      const items = [...list.listContacts]
+      return sortDir === 'desc' ? items.reverse() : items
+    }
+    function getSortValue(lc: ListContact, field: Exclude<ListSortField, 'order'>): string {
       switch (field) {
         case 'name': return `${lc.contact.firstName} ${lc.contact.lastName ?? ''}`.toLowerCase()
         case 'phone': return lc.contact.phone
@@ -101,8 +106,8 @@ export default function ListDetailPage() {
 
   if (!list) return <div className="p-8 text-muted-foreground">Ładowanie...</div>
 
-  const total = list.listContacts.length
-  const called = list.listContacts.filter((lc) => lc.status !== 'NOT_CALLED').length
+  const total = list.listContacts.filter((lc) => lc.status !== 'NOT_RELEVANT').length
+  const called = list.listContacts.filter((lc) => lc.status !== 'NOT_CALLED' && lc.status !== 'NOT_RELEVANT').length
   const nextUncalled = list.listContacts.find((lc) => lc.status === 'NOT_CALLED')
   const existingContactIds = list.listContacts.map((lc) => lc.contactId)
 
@@ -153,8 +158,8 @@ export default function ListDetailPage() {
         <table className="w-full text-sm">
           <thead className="bg-muted border-b border-border">
             <tr>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">#</th>
               {([
+                ['order', '#'],
                 ['name', 'Kontakt'],
                 ['phone', 'Telefon'],
                 ['status', 'Status'],
@@ -182,8 +187,14 @@ export default function ListDetailPage() {
                 </td>
               </tr>
             )}
-            {sortedListContacts.map((lc, i) => (
-              <tr key={lc.id} className="hover:bg-muted/50">
+            {sortedListContacts.map((lc, i) => {
+              const originalIndex = list.listContacts.findIndex(o => o.id === lc.id)
+              return (
+              <tr
+                key={lc.id}
+                className="hover:bg-muted/50 cursor-pointer"
+                onClick={() => router.push(`/dashboard/lists/${id}/session?index=${originalIndex}`)}
+              >
                 <td className="px-4 py-3 text-muted-foreground">{i + 1}</td>
                 <td className="px-4 py-3 font-medium text-foreground">
                   {lc.contact.firstName} {lc.contact.lastName}
@@ -196,13 +207,14 @@ export default function ListDetailPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground text-xs max-w-[200px] truncate">{lc.notes ?? '—'}</td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                   <button onClick={() => removeContact(lc.contactId)} className="p-1.5 text-muted-foreground hover:text-red-600 hover:bg-red-500/10 rounded">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

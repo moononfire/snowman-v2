@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
   const hasEmailParam = req.nextUrl.searchParams.get('hasEmail') ?? ''
   const hasWebsiteParam = req.nextUrl.searchParams.get('hasWebsite') ?? ''
   const calledParam = req.nextUrl.searchParams.get('called') ?? ''
+  const cityParam = req.nextUrl.searchParams.get('city') ?? ''
   const source = VALID_SOURCES.has(sourceParam) ? sourceParam : null
 
   const conditions = [eq(contacts.clientId, session.clientId)]
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest) {
   if (hasEmailParam === 'no') conditions.push(isNull(contacts.email))
   if (hasWebsiteParam === 'yes') conditions.push(isNotNull(contacts.website))
   if (hasWebsiteParam === 'no') conditions.push(isNull(contacts.website))
+  if (cityParam) conditions.push(eq(contacts.city, cityParam))
   if (search) {
     conditions.push(
       or(
@@ -113,6 +115,7 @@ export async function POST(req: NextRequest) {
       position: body.position || null,
       email: body.email || null,
       website: body.website || null,
+      city: body.city || null,
       preCallNote: body.preCallNote || null,
       postCallNote: body.postCallNote || null,
       tags: body.tags || null,

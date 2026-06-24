@@ -1,4 +1,4 @@
-export type CallStatus = 'NOT_CALLED' | 'INTERESTED' | 'NOT_INTERESTED' | 'NO_ANSWER' | 'CALLBACK' | 'VOICEMAIL' | 'WRONG_NUMBER'
+export type CallStatus = 'NOT_CALLED' | 'INTERESTED' | 'NOT_INTERESTED' | 'NO_ANSWER' | 'CALLBACK' | 'VOICEMAIL' | 'WRONG_NUMBER' | 'NOT_RELEVANT'
 export type ContactSource = 'MANUAL' | 'CSV_IMPORT' | 'GOOGLE_SCRAPE'
 
 export const CONTACT_SOURCE_LABELS: Record<ContactSource, string> = {
@@ -21,6 +21,7 @@ export const CALL_STATUS_LABELS: Record<CallStatus, string> = {
   CALLBACK: 'Oddzwonienie',
   VOICEMAIL: 'Poczta głosowa',
   WRONG_NUMBER: 'Zły numer',
+  NOT_RELEVANT: 'Nieodpowiedni',
 }
 
 export const CALL_STATUS_COLORS: Record<CallStatus, string> = {
@@ -31,6 +32,7 @@ export const CALL_STATUS_COLORS: Record<CallStatus, string> = {
   CALLBACK: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400',
   VOICEMAIL: 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-400',
   WRONG_NUMBER: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-400',
+  NOT_RELEVANT: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400',
 }
 
 export const CALL_STATUS_ORDER: CallStatus[] = [
@@ -39,5 +41,6 @@ export const CALL_STATUS_ORDER: CallStatus[] = [
   'NO_ANSWER',
   'VOICEMAIL',
   'NOT_INTERESTED',
+  'NOT_RELEVANT',
   'WRONG_NUMBER',
 ]

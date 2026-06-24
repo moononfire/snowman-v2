@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, Play, ChevronRight, Trash2 } from 'lucide-react'
+import { Plus, Play, ChevronRight, Trash2, UserCheck, PhoneCall, PhoneMissed, UserX, MessageSquare, AlertTriangle, Ban } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -81,6 +81,81 @@ export default function ListsPage() {
         </div>
       )}
 
+      {/* KPI across all lists */}
+      {lists.length > 0 && (() => {
+        const allContacts = lists.flatMap(l => l.listContacts)
+        const notRelevant = allContacts.filter(lc => lc.status === 'NOT_RELEVANT').length
+        const total = allContacts.length - notRelevant
+        const called = allContacts.filter(lc => lc.status !== 'NOT_CALLED' && lc.status !== 'NOT_RELEVANT').length
+        const interested = allContacts.filter(lc => lc.status === 'INTERESTED').length
+        const notInterested = allContacts.filter(lc => lc.status === 'NOT_INTERESTED').length
+        const noAnswer = allContacts.filter(lc => lc.status === 'NO_ANSWER').length
+        const callback = allContacts.filter(lc => lc.status === 'CALLBACK').length
+        const voicemail = allContacts.filter(lc => lc.status === 'VOICEMAIL').length
+        const wrongNumber = allContacts.filter(lc => lc.status === 'WRONG_NUMBER').length
+        const reached = called - noAnswer - voicemail
+        const contactRate = called > 0 ? Math.round((reached / called) * 100) : 0
+        const positiveRate = reached > 0 ? Math.round((interested / reached) * 100) : 0
+
+        const statuses = [
+          { label: 'Zainteresowany', count: interested, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-500', icon: <UserCheck className="h-4 w-4" /> },
+          { label: 'Oddzwonienie', count: callback, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500', icon: <PhoneCall className="h-4 w-4" /> },
+          { label: 'Brak odpowiedzi', count: noAnswer, color: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-500', icon: <PhoneMissed className="h-4 w-4" /> },
+          { label: 'Poczta głosowa', count: voicemail, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-500', icon: <MessageSquare className="h-4 w-4" /> },
+          { label: 'Niezainteresowany', count: notInterested, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500', icon: <UserX className="h-4 w-4" /> },
+          { label: 'Nieodpowiedni', count: notRelevant, color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-500', icon: <Ban className="h-4 w-4" /> },
+          { label: 'Zły numer', count: wrongNumber, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-500', icon: <AlertTriangle className="h-4 w-4" /> },
+        ]
+
+        return (
+          <div className="mb-6 space-y-4">
+            <div className="grid grid-cols-4 gap-3">
+              <div className="bg-card rounded-xl border border-border p-4">
+                <p className="text-xs text-muted-foreground mb-1">Obdzwoniono</p>
+                <p className="text-2xl font-bold text-foreground">{called} <span className="text-sm font-normal text-muted-foreground">/ {total}</span></p>
+                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mt-2">
+                  <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${total > 0 ? (called / total) * 100 : 0}%` }} />
+                </div>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4">
+                <p className="text-xs text-muted-foreground mb-1">Dodzwanialność</p>
+                <p className="text-2xl font-bold text-foreground">{contactRate}%</p>
+                <p className="text-xs text-muted-foreground mt-1">{reached} z {called} odebrało</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4">
+                <p className="text-xs text-muted-foreground mb-1">Konwersja</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{positiveRate}%</p>
+                <p className="text-xs text-muted-foreground mt-1">{interested} zainteresowanych</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4">
+                <p className="text-xs text-muted-foreground mb-1">Do oddzwonienia</p>
+                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{callback}</p>
+                <p className="text-xs text-muted-foreground mt-1">kontaktów czeka</p>
+              </div>
+            </div>
+
+            {called > 0 && (
+              <div className="bg-card rounded-xl border border-border p-4">
+                <div className="flex items-center gap-0.5 h-3 rounded-full overflow-hidden">
+                  {statuses.filter(s => s.count > 0).map(s => (
+                    <div key={s.label} className={`h-full ${s.bg} transition-all`} style={{ width: `${(s.count / called) * 100}%` }} title={`${s.label}: ${s.count}`} />
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-x-5 gap-y-1 mt-3">
+                  {statuses.map(s => (
+                    <div key={s.label} className={`flex items-center gap-1.5 text-xs ${s.color}`}>
+                      {s.icon}
+                      <span>{s.label}</span>
+                      <span className="font-semibold">{s.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       <div className="space-y-3">
         {lists.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
@@ -88,8 +163,8 @@ export default function ListsPage() {
           </div>
         )}
         {lists.map((list) => {
-          const total = list.listContacts.length
-          const called = list.listContacts.filter((lc) => lc.status !== 'NOT_CALLED').length
+          const total = list.listContacts.filter((lc) => lc.status !== 'NOT_RELEVANT').length
+          const called = list.listContacts.filter((lc) => lc.status !== 'NOT_CALLED' && lc.status !== 'NOT_RELEVANT').length
           const interested = list.listContacts.filter((lc) => lc.status === 'INTERESTED').length
           const pct = total > 0 ? Math.round((called / total) * 100) : 0
 

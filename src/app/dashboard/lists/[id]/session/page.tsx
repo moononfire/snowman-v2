@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Phone, ChevronLeft, ChevronRight, CheckCircle, ArrowLeft } from 'lucide-react'
+import { Phone, ChevronLeft, ChevronRight, CheckCircle, ArrowLeft, MapPin, Star, Globe, Clock, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { CALL_STATUS_LABELS, CALL_STATUS_COLORS, CALL_STATUS_ORDER, type CallStatus } from '@/lib/callTypes'
@@ -17,6 +17,19 @@ type Contact = {
   position: string | null
   preCallNote: string | null
   email: string | null
+  website: string | null
+  city: string | null
+  address: string | null
+  googlePlaceId: string | null
+  googleMapsUrl: string | null
+  latitude: number | null
+  longitude: number | null
+  rating: number | null
+  reviewCount: number | null
+  businessStatus: string | null
+  openingHours: string[] | null
+  tags: string | null
+  source: string
 }
 
 type ListContact = {
@@ -34,23 +47,261 @@ type ListData = {
   listContacts: ListContact[]
 }
 
+const BUSINESS_STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  OPERATIONAL: { label: 'Otwarte', color: 'text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400' },
+  CLOSED_TEMPORARILY: { label: 'Tymczasowo zamknięte', color: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400' },
+  CLOSED_PERMANENTLY: { label: 'Zamknięte na stałe', color: 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400' },
+}
+
+function StarRating({ rating, reviewCount }: { rating: number; reviewCount: number | null }) {
+  const fullStars = Math.floor(rating)
+  const hasHalf = rating - fullStars >= 0.3
+  const emptyStars = 5 - fullStars - (hasHalf ? 1 : 0)
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="flex items-center">
+        {Array.from({ length: fullStars }).map((_, i) => (
+          <Star key={`full-${i}`} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+        ))}
+        {hasHalf && (
+          <div className="relative">
+            <Star className="h-4 w-4 text-muted-foreground/30" />
+            <div className="absolute inset-0 overflow-hidden w-[50%]">
+              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+            </div>
+          </div>
+        )}
+        {Array.from({ length: emptyStars }).map((_, i) => (
+          <Star key={`empty-${i}`} className="h-4 w-4 text-muted-foreground/30" />
+        ))}
+      </div>
+      <span className="font-semibold text-sm text-foreground">{rating.toFixed(1)}</span>
+      {reviewCount != null && (
+        <span className="text-sm text-muted-foreground">({reviewCount} opinii)</span>
+      )}
+    </div>
+  )
+}
+
+function GoogleMapWithCard({ contact }: { contact: Contact }) {
+  const [copied, setCopied] = useState(false)
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
+  const c = contact
+  const q = c.googlePlaceId ? `place_id:${c.googlePlaceId}` : encodeURIComponent(`${c.company || c.firstName} ${c.address || c.city || ''}`)
+  const mapsLink = c.googleMapsUrl || (c.googlePlaceId ? `https://www.google.com/maps/place/?q=place_id:${c.googlePlaceId}` : `https://www.google.com/maps/search/${encodeURIComponent(`${c.company || c.firstName} ${c.address || c.city || ''}`)}`)
+
+  return (
+    <div className="relative">
+      {/* Map */}
+      {apiKey && (
+        <iframe
+          className="w-full h-[250px]"
+          loading="lazy"
+          allowFullScreen
+          referrerPolicy="no-referrer-when-downgrade"
+          src={`https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${q}`}
+        />
+      )}
+
+      {/* Business card overlay */}
+      <div className="bg-card border-t border-border px-6 py-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-lg text-foreground truncate">{c.company || c.firstName}</h3>
+
+            {c.rating != null && (
+              <div className="flex items-center gap-2 mt-1">
+                <span className="font-bold text-sm text-foreground">{c.rating.toFixed(1)}</span>
+                <StarRating rating={c.rating} reviewCount={null} />
+                {c.reviewCount != null && (
+                  <span className="text-sm text-muted-foreground">({c.reviewCount.toLocaleString('pl-PL')})</span>
+                )}
+              </div>
+            )}
+
+            {c.tags && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {c.tags.split(',').map(t => t.trim().replace(/_/g, ' ')).join(' · ')}
+              </p>
+            )}
+
+            {c.businessStatus && c.businessStatus !== 'OPERATIONAL' && (
+              <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium mt-1.5 ${BUSINESS_STATUS_LABELS[c.businessStatus]?.color || ''}`}>
+                {BUSINESS_STATUS_LABELS[c.businessStatus]?.label || c.businessStatus}
+              </span>
+            )}
+          </div>
+
+          {c.googleMapsUrl && (
+            <a
+              href={c.googleMapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Google Maps
+            </a>
+          )}
+        </div>
+
+        <div className="mt-3 space-y-1.5">
+          {c.address && (
+            <div className="flex items-start gap-2 text-sm">
+              <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              <span className="text-foreground">{c.address}</span>
+            </div>
+          )}
+
+          {c.phone && (
+            <div className="flex items-center gap-2 text-sm">
+              <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+              <button
+                onClick={() => { navigator.clipboard.writeText(c.phone.replace(/\s/g, '')); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
+                className="text-foreground hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors"
+                title="Kopiuj numer"
+              >
+                {copied ? 'Skopiowano!' : c.phone}
+              </button>
+            </div>
+          )}
+
+          {c.website && (
+            <div className="flex items-center gap-2 text-sm">
+              <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+              <a href={c.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline truncate">
+                {c.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
+              </a>
+            </div>
+          )}
+
+          {c.openingHours && c.openingHours.length > 0 && (
+            <OpeningHoursInline hours={c.openingHours} />
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function parseTimeToMinutes(timeStr: string): number | null {
+  const cleaned = timeStr.trim().toLowerCase()
+  if (cleaned.includes('closed')) return null
+
+  const match = cleaned.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i)
+  if (!match) return null
+
+  let hours = parseInt(match[1], 10)
+  const minutes = parseInt(match[2], 10)
+  const ampm = match[3]?.toLowerCase()
+
+  if (ampm === 'pm' && hours !== 12) hours += 12
+  if (ampm === 'am' && hours === 12) hours = 0
+
+  return hours * 60 + minutes
+}
+
+function isOpenNow(hours: string[]): { isOpen: boolean; label: string } | null {
+  const now = new Date()
+  const dayName = now.toLocaleDateString('en-US', { weekday: 'long' })
+  const todayLine = hours.find(h => h.toLowerCase().startsWith(dayName.toLowerCase()))
+  if (!todayLine) return null
+
+  const colonIdx = todayLine.indexOf(':')
+  if (colonIdx === -1) return null
+  const afterColon = todayLine.slice(colonIdx + 1).trim()
+
+  if (afterColon.toLowerCase().includes('closed')) {
+    return { isOpen: false, label: 'Zamknięte' }
+  }
+  if (afterColon.toLowerCase().includes('open 24 hours')) {
+    return { isOpen: true, label: 'Otwarte 24h' }
+  }
+
+  const rangeParts = afterColon.split('–').map(s => s.trim())
+  if (rangeParts.length !== 2) return null
+
+  const openTime = parseTimeToMinutes(rangeParts[0])
+  const closeTime = parseTimeToMinutes(rangeParts[1])
+  if (openTime === null || closeTime === null) return null
+
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+
+  if (closeTime > openTime) {
+    const isOpen = nowMinutes >= openTime && nowMinutes < closeTime
+    return { isOpen, label: isOpen ? 'Otwarte' : 'Zamknięte' }
+  } else {
+    const isOpen = nowMinutes >= openTime || nowMinutes < closeTime
+    return { isOpen, label: isOpen ? 'Otwarte' : 'Zamknięte' }
+  }
+}
+
+function OpeningHoursInline({ hours }: { hours: string[] }) {
+  const [expanded, setExpanded] = useState(false)
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long' })
+  const todayLine = hours.find(h => h.toLowerCase().startsWith(today.toLowerCase())) || hours[0]
+  const openStatus = isOpenNow(hours)
+
+  return (
+    <div className="text-sm">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <Clock className="h-4 w-4 shrink-0" />
+        {openStatus && (
+          <span className={`font-semibold ${openStatus.isOpen ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+            {openStatus.label}
+          </span>
+        )}
+        <span className="text-muted-foreground">·</span>
+        <span>{todayLine}</span>
+        <ChevronRight className={`h-3 w-3 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+      </button>
+      {expanded && (
+        <div className="ml-6 mt-1 space-y-0.5">
+          {hours.map((line, i) => (
+            <p key={i} className={`text-sm ${line.toLowerCase().startsWith(today.toLowerCase()) ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{line}</p>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function SessionPage() {
   const { id } = useParams<{ id: string }>()
+  const searchParams = useSearchParams()
   const [list, setList] = useState<ListData | null>(null)
   const [index, setIndex] = useState(0)
+  const [initialIndexApplied, setInitialIndexApplied] = useState(false)
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState<CallStatus | null>(null)
   const [followUpDate, setFollowUpDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [copiedPhone, setCopiedPhone] = useState(false)
 
   const fetchList = useCallback(async () => {
     const res = await fetch(`/api/lists/${id}`)
     const data: ListData = await res.json()
     setList(data)
-    const firstUncalled = data.listContacts.findIndex((lc) => lc.status === 'NOT_CALLED')
-    setIndex(firstUncalled >= 0 ? firstUncalled : 0)
-  }, [id])
+    if (!initialIndexApplied) {
+      const paramIndex = searchParams.get('index')
+      if (paramIndex != null) {
+        const parsed = parseInt(paramIndex, 10)
+        if (!isNaN(parsed) && parsed >= 0 && parsed < data.listContacts.length) {
+          setIndex(parsed)
+          setInitialIndexApplied(true)
+          return
+        }
+      }
+      const firstUncalled = data.listContacts.findIndex((lc) => lc.status === 'NOT_CALLED')
+      setIndex(firstUncalled >= 0 ? firstUncalled : 0)
+      setInitialIndexApplied(true)
+    }
+  }, [id, initialIndexApplied, searchParams])
 
   useEffect(() => { fetchList() }, [fetchList])
 
@@ -97,9 +348,12 @@ export default function SessionPage() {
   if (!list) return <div className="p-8 text-muted-foreground">Ładowanie...</div>
   if (!current) return <div className="p-8 text-muted-foreground">Brak kontaktów na liście.</div>
 
-  const total = list.listContacts.length
-  const called = list.listContacts.filter((lc) => lc.status !== 'NOT_CALLED').length
+  const total = list.listContacts.filter((lc) => lc.status !== 'NOT_RELEVANT').length
+  const called = list.listContacts.filter((lc) => lc.status !== 'NOT_CALLED' && lc.status !== 'NOT_RELEVANT').length
   const allDone = called === total
+  const c = current.contact
+  const hasGoogleData = c.source === 'GOOGLE_SCRAPE' && (c.rating != null || c.googlePlaceId || c.latitude != null)
+  const statusInfo = c.businessStatus ? BUSINESS_STATUS_LABELS[c.businessStatus] : null
 
   return (
     <div className="min-h-full bg-background">
@@ -134,10 +388,17 @@ export default function SessionPage() {
           </Link>
         </div>
       ) : (
-        <div className="max-w-2xl mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-            <span>{index + 1} z {total}</span>
-            <div className="flex gap-1">
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setIndex((i) => Math.max(0, i - 5))}
+                disabled={index === 0}
+                className="px-2 py-1.5 rounded hover:bg-muted disabled:opacity-30 text-xs font-medium"
+                title="-5"
+              >
+                -5
+              </button>
               <button
                 onClick={() => setIndex((i) => Math.max(0, i - 1))}
                 disabled={index === 0}
@@ -145,6 +406,22 @@ export default function SessionPage() {
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
+              <div className="flex items-center gap-1 mx-1">
+                <input
+                  type="number"
+                  min={1}
+                  max={total}
+                  value={index + 1}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10)
+                    if (!isNaN(val) && val >= 1 && val <= total) {
+                      setIndex(val - 1)
+                    }
+                  }}
+                  className="w-14 text-center px-1 py-1 border border-border rounded-md text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <span className="text-muted-foreground">/ {total}</span>
+              </div>
               <button
                 onClick={() => setIndex((i) => Math.min(total - 1, i + 1))}
                 disabled={index === total - 1}
@@ -152,41 +429,60 @@ export default function SessionPage() {
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
+              <button
+                onClick={() => setIndex((i) => Math.min(total - 1, i + 5))}
+                disabled={index >= total - 1}
+                className="px-2 py-1.5 rounded hover:bg-muted disabled:opacity-30 text-xs font-medium"
+                title="+5"
+              >
+                +5
+              </button>
             </div>
+            <span className="text-xs text-muted-foreground">{called}/{total} zadzwoniono</span>
           </div>
 
           <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+            {/* Header */}
             <div className="bg-gradient-to-br from-blue-600 to-blue-700 px-8 py-8 text-white">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-blue-200 text-sm font-medium mb-1">
-                    {current.contact.company ?? ''}
-                    {current.contact.position ? ` · ${current.contact.position}` : ''}
-                  </p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-blue-200 text-sm font-medium">
+                      {c.company ?? ''}
+                      {c.position ? ` · ${c.position}` : ''}
+                    </p>
+                    {statusInfo && c.businessStatus !== 'OPERATIONAL' && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusInfo.color}`}>
+                        {statusInfo.label}
+                      </span>
+                    )}
+                  </div>
                   <h2 className="text-3xl font-bold">
-                    {current.contact.firstName} {current.contact.lastName}
+                    {c.firstName} {c.lastName}
                   </h2>
                 </div>
-                <a
-                  href={`tel:${current.contact.phone.replace(/\s/g, '')}`}
-                  className="flex items-center gap-2 bg-white/20 hover:bg-white/30 transition-colors text-white rounded-xl px-4 py-2.5"
+                <button
+                  onClick={() => { navigator.clipboard.writeText(c.phone.replace(/\s/g, '')); setCopiedPhone(true); setTimeout(() => setCopiedPhone(false), 1500) }}
+                  className="flex items-center gap-2 bg-white/20 hover:bg-white/30 transition-colors text-white rounded-xl px-4 py-2.5 cursor-pointer"
+                  title="Kopiuj numer"
                 >
-                  <Phone className="h-5 w-5" />
-                  <span className="font-mono text-lg font-semibold">{current.contact.phone}</span>
-                </a>
+                  {copiedPhone ? <CheckCircle className="h-5 w-5 shrink-0" /> : <Phone className="h-5 w-5 shrink-0" />}
+                  <span className="font-mono text-lg font-semibold">{copiedPhone ? 'Skopiowano!' : c.phone}</span>
+                </button>
               </div>
-              {current.contact.email && (
-                <p className="text-blue-200 text-sm mt-2">{current.contact.email}</p>
+              {c.email && (
+                <p className="text-blue-200 text-sm mt-2">{c.email}</p>
               )}
             </div>
 
-            {current.contact.preCallNote && (
-              <div className="px-8 py-3 bg-amber-500/10 border-b border-amber-500/20">
-                <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-1">Notatka przed rozmową</p>
-                <p className="text-sm text-amber-800 dark:text-amber-300">{current.contact.preCallNote}</p>
+            {/* Google Map + Business Card */}
+            {(c.googlePlaceId || c.company || c.address) && (
+              <div className="border-b border-border">
+                <GoogleMapWithCard contact={c} />
               </div>
             )}
 
+            {/* Call controls */}
             <div className="px-8 py-6 space-y-5">
               <div>
                 <p className="text-sm font-semibold text-foreground mb-2">Wynik rozmowy</p>
@@ -232,6 +528,7 @@ export default function SessionPage() {
               )}
             </div>
 
+            {/* Footer */}
             <div className="px-8 py-4 border-t border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {saved && (
@@ -252,23 +549,6 @@ export default function SessionPage() {
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-7 gap-1">
-            {list.listContacts.map((lc, i) => (
-              <button
-                key={lc.id}
-                onClick={() => setIndex(i)}
-                title={`${lc.contact.firstName} ${lc.contact.lastName ?? ''}`}
-                className={`h-1.5 rounded-full transition-all ${
-                  i === index ? 'bg-blue-600' :
-                  lc.status === 'NOT_CALLED' ? 'bg-muted-foreground/20' :
-                  lc.status === 'INTERESTED' ? 'bg-green-400' :
-                  lc.status === 'CALLBACK' ? 'bg-blue-300' :
-                  lc.status === 'NO_ANSWER' ? 'bg-yellow-300' :
-                  'bg-muted-foreground/50'
-                }`}
-              />
-            ))}
-          </div>
         </div>
       )}
     </div>

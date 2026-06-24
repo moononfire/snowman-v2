@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
       company: r.company || r.firma || null,
       position: r.position || r.stanowisko || null,
       email: r.email || r.mail || null,
+      city: r.city || r.miasto || r.miejscowosc || r['miejscowość'] || null,
       preCallNote: r.preCallNote || r.note || r.notatka || null,
       tags: r.tags || r.tagi || null,
       source: 'CSV_IMPORT' as const,

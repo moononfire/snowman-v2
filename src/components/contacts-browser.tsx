@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Search, Check, Lock, Pencil, Trash2, X, Globe, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { Search, Check, Lock, Pencil, Trash2, X, Globe, ArrowUp, ArrowDown, ArrowUpDown, ChevronDown, MapPin } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { CONTACT_SOURCE_LABELS, CONTACT_SOURCE_COLORS, CALL_STATUS_LABELS, CALL_STATUS_COLORS, type CallStatus } from '@/lib/callTypes'
 
@@ -16,6 +16,7 @@ export type Contact = {
   position: string | null
   email: string | null
   website: string | null
+  city: string | null
   preCallNote: string | null
   postCallNote: string | null
   tags: string | null
@@ -25,7 +26,7 @@ export type Contact = {
   _count?: { listContacts: number }
 }
 
-type SortField = 'name' | 'phone' | 'company' | 'email' | 'website' | 'source' | 'status' | 'note' | 'createdAt'
+type SortField = 'name' | 'phone' | 'company' | 'city' | 'email' | 'website' | 'source' | 'status' | 'note' | 'createdAt'
 type SortDir = 'asc' | 'desc'
 
 interface ContactsBrowserProps {
@@ -93,6 +94,11 @@ export function ContactsBrowser({
   const [emailFilter, setEmailFilter] = useState<BoolFilter>('')
   const [websiteFilter, setWebsiteFilter] = useState<BoolFilter>('')
   const [calledFilter, setCalledFilter] = useState<BoolFilter>('')
+  const [cityFilter, setCityFilter] = useState('')
+  const [availableCities, setAvailableCities] = useState<string[]>([])
+  const [cityDropdownOpen, setCityDropdownOpen] = useState(false)
+  const [citySearch, setCitySearch] = useState('')
+  const cityDropdownRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(true)
   const [sortField, setSortField] = useState<SortField>('createdAt')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -109,6 +115,7 @@ export function ContactsBrowser({
     if (emailFilter) params.set('hasEmail', emailFilter)
     if (websiteFilter) params.set('hasWebsite', websiteFilter)
     if (calledFilter) params.set('called', calledFilter)
+    if (cityFilter) params.set('city', cityFilter)
     const res = await fetch(`/api/contacts?${params}`)
     if (res.ok) {
       const all: Contact[] = await res.json()
@@ -117,12 +124,34 @@ export function ContactsBrowser({
     }
     setLoading(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, sourceFilter, tagsFilter, companyFilter, emailFilter, websiteFilter, calledFilter, excludeIdsKey, refreshKey])
+  }, [search, sourceFilter, tagsFilter, companyFilter, emailFilter, websiteFilter, calledFilter, cityFilter, excludeIdsKey, refreshKey])
 
   useEffect(() => {
     const t = setTimeout(fetchContacts, 200)
     return () => clearTimeout(t)
   }, [fetchContacts])
+
+  useEffect(() => {
+    fetch('/api/contacts/cities')
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setAvailableCities)
+  }, [refreshKey])
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (cityDropdownRef.current && !cityDropdownRef.current.contains(e.target as Node)) {
+        setCityDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const filteredCities = useMemo(() => {
+    if (!citySearch) return availableCities
+    const q = citySearch.toLowerCase()
+    return availableCities.filter((c) => c.toLowerCase().includes(q))
+  }, [availableCities, citySearch])
 
   function isOccupied(c: Contact) {
     return selectable && (c._count?.listContacts ?? 0) > 0
@@ -147,7 +176,7 @@ export function ContactsBrowser({
     onSelectionChange(next)
   }
 
-  const hasActiveFilters = sourceFilter || tagsFilter || companyFilter || emailFilter || websiteFilter || calledFilter
+  const hasActiveFilters = sourceFilter || tagsFilter || companyFilter || emailFilter || websiteFilter || calledFilter || cityFilter
 
   function clearFilters() {
     setSourceFilter('')
@@ -156,6 +185,8 @@ export function ContactsBrowser({
     setEmailFilter('')
     setWebsiteFilter('')
     setCalledFilter('')
+    setCityFilter('')
+    setCitySearch('')
   }
 
   const availableContacts = contacts.filter((c) => !isOccupied(c))
@@ -163,7 +194,7 @@ export function ContactsBrowser({
   const someSelected = !allSelected && availableContacts.some((c) => selected.has(c.id))
   const hasFilters = search || hasActiveFilters
   const showActions = !!(onEdit || onDelete || rowActions)
-  const colCount = 9 + (selectable ? 1 : 0) + (showActions ? 1 : 0)
+  const colCount = 10 + (selectable ? 1 : 0) + (showActions ? 1 : 0)
 
   function toggleSort(field: SortField) {
     if (sortField === field) {
@@ -184,6 +215,7 @@ export function ContactsBrowser({
       case 'name': return `${c.firstName} ${c.lastName ?? ''}`.toLowerCase()
       case 'phone': return c.phone
       case 'company': return (c.company ?? '').toLowerCase()
+      case 'city': return (c.city ?? '').toLowerCase()
       case 'email': return (c.email ?? '').toLowerCase()
       case 'website': return (c.website ?? '').toLowerCase()
       case 'source': return c.source
@@ -271,6 +303,69 @@ export function ContactsBrowser({
             ))}
           </div>
 
+          <span className="text-muted-foreground font-medium w-24">Miejscowość</span>
+          <div className="flex items-center gap-2">
+            <div className="relative" ref={cityDropdownRef}>
+              <button
+                onClick={() => { setCityDropdownOpen((o) => !o); setCitySearch('') }}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium text-xs transition-colors ${
+                  cityFilter
+                    ? 'bg-foreground text-background'
+                    : 'bg-background border border-border text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <MapPin className="h-3 w-3" />
+                {cityFilter || 'Wszystkie'}
+                <ChevronDown className="h-3 w-3" />
+              </button>
+              {cityDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 w-56 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+                  <div className="p-2 border-b border-border">
+                    <Input
+                      className="h-7 text-xs"
+                      placeholder="Szukaj miasta..."
+                      value={citySearch}
+                      onChange={(e) => setCitySearch(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto">
+                    <button
+                      onClick={() => { setCityFilter(''); setCityDropdownOpen(false) }}
+                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors ${
+                        !cityFilter ? 'font-semibold text-foreground' : 'text-muted-foreground'
+                      }`}
+                    >
+                      Wszystkie
+                    </button>
+                    {filteredCities.map((city) => (
+                      <button
+                        key={city}
+                        onClick={() => { setCityFilter(city); setCityDropdownOpen(false) }}
+                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors ${
+                          cityFilter === city ? 'font-semibold text-foreground bg-muted/50' : 'text-muted-foreground'
+                        }`}
+                      >
+                        {city}
+                      </button>
+                    ))}
+                    {filteredCities.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">Brak wyników</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            {cityFilter && (
+              <button
+                onClick={() => { setCityFilter(''); setCitySearch('') }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+
           <span className="text-muted-foreground font-medium w-24">Tagi</span>
           <div className="flex items-center gap-2">
             <Input
@@ -291,7 +386,7 @@ export function ContactsBrowser({
 
       {/* Table */}
       <div className="bg-card rounded-lg border border-border overflow-x-auto">
-        <table className="w-full text-sm min-w-[1100px]">
+        <table className="w-full text-sm min-w-[1250px]">
           <thead className="bg-muted border-b border-border">
             <tr>
               {selectable && (
@@ -314,6 +409,7 @@ export function ContactsBrowser({
                 ['name', 'Imię i nazwisko'],
                 ['phone', 'Telefon'],
                 ['company', 'Firma'],
+                ['city', 'Miejscowość'],
                 ['email', 'Email'],
                 ['website', 'WWW'],
                 ['source', 'Źródło'],
@@ -356,7 +452,7 @@ export function ContactsBrowser({
               return (
                 <tr
                   key={c.id}
-                  className={`${occupied ? 'opacity-40 cursor-not-allowed' : ''} ${
+                  className={`${occupied ? 'cursor-not-allowed' : ''} ${
                     selectable && !occupied ? 'hover:bg-muted/50 cursor-pointer select-none' : ''
                   } ${selectable && selected.has(c.id) ? 'bg-blue-500/5' : ''}`}
                   onClick={selectable && !occupied ? () => toggleContact(c) : undefined}
@@ -409,6 +505,10 @@ export function ContactsBrowser({
 
                   <td className="px-4 py-3 text-muted-foreground text-sm">
                     {c.company ?? <span className="text-border">—</span>}
+                  </td>
+
+                  <td className="px-4 py-3 text-muted-foreground text-sm whitespace-nowrap">
+                    {c.city ?? <span className="text-border">—</span>}
                   </td>
 
                   <td className="px-4 py-3 text-muted-foreground text-sm">

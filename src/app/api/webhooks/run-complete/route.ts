@@ -103,12 +103,22 @@ export async function POST(req: NextRequest) {
               clientId: run.clientId,
               firstName: r.name || '—',
               company: r.name || null,
-              phone: r.phone || '',
+              phone: r.phone_international || r.phone || '',
               email: r.email || null,
               website: r.website || null,
+              city: r.city || null,
+              address: r.address || null,
               preCallNote: [r.address, r.city, r.country].filter(Boolean).join(', ') || null,
               tags: r.category_google || null,
               source: 'GOOGLE_SCRAPE' as const,
+              googlePlaceId: r.place_id || null,
+              googleMapsUrl: r.google_maps_url || null,
+              latitude: r.latitude ? parseFloat(r.latitude) : null,
+              longitude: r.longitude ? parseFloat(r.longitude) : null,
+              rating: r.rating ? parseFloat(r.rating) : null,
+              reviewCount: r.review_count ? parseInt(r.review_count, 10) : null,
+              businessStatus: r.business_status || null,
+              openingHours: r.opening_hours ? r.opening_hours.split('|') : null,
             }))
           console.log(`[run-complete] inserting ${data.length} contacts (filtered from ${rows.length})`)
           if (data.length > 0) {
