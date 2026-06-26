@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { useT } from '@/lib/i18n/context'
 
 declare global {
   interface Window {
@@ -33,6 +34,7 @@ function boundsFrom(lat: number, lng: number, km: number) {
 }
 
 export default function NewGoogleScrapeButton() {
+  const t = useT()
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -219,7 +221,7 @@ export default function NewGoogleScrapeButton() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!query.trim()) { setError('Wpisz frazę wyszukiwania'); return }
+    if (!query.trim()) { setError(t('scrapeEmptyQuery')); return }
     setSubmitting(true)
     setError('')
     try {
@@ -235,13 +237,13 @@ export default function NewGoogleScrapeButton() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? 'Błąd serwera')
+        throw new Error(data.error ?? t('scrapeServerError'))
       }
       const { runId } = await res.json()
       setOpen(false)
       router.push(`/dashboard/runs/${runId}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Nieznany błąd')
+      setError(err instanceof Error ? err.message : t('scrapeUnknownError'))
     } finally {
       setSubmitting(false)
     }
@@ -264,22 +266,22 @@ export default function NewGoogleScrapeButton() {
         onClick={() => setOpen(true)}
         className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700"
       >
-        + Pozyskaj kontakty
+        {t('scrapeButton')}
       </button>
 
       {open && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto" style={{ background: 'var(--card)' }}>
             <div className="p-6">
-              <h2 className="font-semibold text-lg mb-4">Nowy scraping Google Maps</h2>
+              <h2 className="font-semibold text-lg mb-4">{t('scrapeTitle')}</h2>
               <form onSubmit={handleSubmit} className="space-y-4">
 
                 <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>Fraza wyszukiwania</label>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>{t('scrapeQueryLabel')}</label>
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="np. restauracje, hydraulik, dentysta"
+                    placeholder={t('scrapeQueryPlaceholder')}
                     required
                     className="w-full border rounded px-3 py-2 text-sm"
                     style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
@@ -290,7 +292,7 @@ export default function NewGoogleScrapeButton() {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-sm font-medium" style={{ color: 'var(--foreground)' }}>
-                        Obszar <span className="font-normal" style={{ color: 'var(--muted-foreground)' }}>(opcjonalnie)</span>
+                        {t('scrapeAreaLabel')} <span className="font-normal" style={{ color: 'var(--muted-foreground)' }}>{t('scrapeAreaOptional')}</span>
                       </label>
                       <button
                         type="button"
@@ -302,12 +304,12 @@ export default function NewGoogleScrapeButton() {
                         }`}
                         style={drawMode ? undefined : { color: 'var(--foreground)' }}
                       >
-                        {drawMode ? '✎ Rysuję na mapie' : '✎ Zaznacz na mapie'}
+                        {drawMode ? t('scrapeDrawing') : t('scrapeDrawOnMap')}
                       </button>
                     </div>
                     <input
                       ref={searchRef}
-                      placeholder="Wyszukaj miasto lub region..."
+                      placeholder={t('scrapeSearchCity')}
                       className="w-full border rounded px-3 py-2 text-sm mb-2"
                       style={{
                         background: 'var(--muted)',
@@ -326,14 +328,14 @@ export default function NewGoogleScrapeButton() {
 
                     {drawMode && !coordsSw && (
                       <p className="text-xs mt-1 text-blue-600">
-                        {isDrawing ? 'Przeciągnij aby zaznaczyć obszar...' : 'Kliknij i przeciągnij na mapie aby zaznaczyć prostokątny obszar.'}
+                        {isDrawing ? t('scrapeDragToSelect') : t('scrapeClickAndDrag')}
                       </p>
                     )}
 
                     {center && !drawMode ? (
                       <div className="mt-3 space-y-2">
                         <div className="flex items-center justify-between">
-                          <label className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Promień</label>
+                          <label className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>{t('scrapeRadius')}</label>
                           <span className="text-sm font-semibold text-blue-600">{radiusKm} km</span>
                         </div>
                         <input
@@ -355,13 +357,13 @@ export default function NewGoogleScrapeButton() {
                       </div>
                     ) : !drawMode ? (
                       <p className="text-xs mt-1" style={{ color: 'var(--muted-foreground)' }}>
-                        Wyszukaj miasto lub zaznacz obszar na mapie. Bez obszaru skrypt przeszuka globalnie (max 60 wyników).
+                        {t('scrapeNoAreaHint')}
                       </p>
                     ) : null}
                   </div>
                 ) : (
                   <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-                    Dodaj <code className="font-mono">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> do zmiennych środowiskowych aby używać mapy.
+                    {t('scrapeAddApiKey')} <code className="font-mono">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> {t('scrapeApiKeyHint')}
                   </p>
                 )}
 
@@ -373,7 +375,7 @@ export default function NewGoogleScrapeButton() {
                     disabled={submitting}
                     className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {submitting ? 'Uruchamianie...' : 'Uruchom'}
+                    {submitting ? t('scrapeRunning') : t('scrapeRun')}
                   </button>
                   <button
                     type="button"
@@ -381,7 +383,7 @@ export default function NewGoogleScrapeButton() {
                     className="px-4 py-2 rounded text-sm border"
                     style={{ color: 'var(--foreground)' }}
                   >
-                    Anuluj
+                    {t('cancel')}
                   </button>
                 </div>
               </form>

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { runs } from '@/db/schema'
+import { runs, contacts, clients } from '@/db/schema'
 import { getSession } from '@/lib/auth'
 import { vps } from '@/lib/vpsClient'
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, inArray, and, isNotNull, isNull } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 
 export async function GET() {
@@ -29,6 +29,36 @@ export async function POST(req: NextRequest) {
 
   if (script === 'scrape_google_maps' && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
     params.api_key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+  }
+
+  if (script === 'scrape_contact_emails') {
+    const contactIds: string[] = (params.contact_ids as string ?? '').split(',').filter(Boolean)
+    if (contactIds.length === 0) {
+      return NextResponse.json({ error: 'No contact IDs provided' }, { status: 400 })
+    }
+    const rows = await db
+      .select({ id: contacts.id, website: contacts.website })
+      .from(contacts)
+      .where(and(
+        eq(contacts.clientId, session.clientId),
+        inArray(contacts.id, contactIds),
+        isNotNull(contacts.website),
+        isNull(contacts.email),
+      ))
+    if (rows.length === 0) {
+      return NextResponse.json({ error: 'No contacts with website and without email found' }, { status: 400 })
+    }
+    const payload = rows.map(r => ({ id: r.id, website: r.website! }))
+    params.contacts = Buffer.from(JSON.stringify(payload)).toString('base64')
+    delete params.contact_ids
+
+    // Pass ignored email patterns from client config
+    const clientRows = await db.select({ config: clients.config }).from(clients).where(eq(clients.id, session.clientId)).limit(1)
+    const config = clientRows[0]?.config as Record<string, unknown> | null
+    const ignoredPatterns = (config?.ignoredEmailPatterns as string[] | undefined) ?? []
+    if (ignoredPatterns.length > 0) {
+      params.ignored_patterns = ignoredPatterns.join(',')
+    }
   }
 
   const runId = randomUUID()

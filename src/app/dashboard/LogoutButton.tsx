@@ -1,8 +1,10 @@
 'use client'
 
 import { logoutAction } from './actions'
+import { useT } from '@/lib/i18n/context'
 
 export function LogoutButton() {
+  const t = useT()
   return (
     <form action={logoutAction}>
       <button
@@ -18,7 +20,7 @@ export function LogoutButton() {
           e.currentTarget.style.color = 'var(--muted-foreground)'
         }}
       >
-        Wyloguj
+        {t('logout')}
       </button>
     </form>
   )

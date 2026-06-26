@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { useT, useDateLocale } from '@/lib/i18n/context'
 
 type Run = {
   id: string
@@ -23,6 +24,8 @@ type SortField = 'script' | 'status' | 'startedAt' | 'finishedAt'
 type SortDir = 'asc' | 'desc'
 
 export default function RunsTable({ runs }: { runs: Run[] }) {
+  const t = useT()
+  const dateLocale = useDateLocale()
   const [sortField, setSortField] = useState<SortField>('startedAt')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
@@ -47,10 +50,10 @@ export default function RunsTable({ runs }: { runs: Run[] }) {
   }, [runs, sortField, sortDir])
 
   const columns: [SortField, string][] = [
-    ['script', 'Skrypt'],
-    ['status', 'Status'],
-    ['startedAt', 'Rozpoczęty'],
-    ['finishedAt', 'Zakończony'],
+    ['script', t('runsColScript')],
+    ['status', t('runsColStatus')],
+    ['startedAt', t('runsColStarted')],
+    ['finishedAt', t('runsColFinished')],
   ]
 
   return (
@@ -84,19 +87,19 @@ export default function RunsTable({ runs }: { runs: Run[] }) {
               </span>
             </td>
             <td className="px-4 py-3" style={{ color: 'var(--muted-foreground)' }}>
-              {run.startedAt ? new Date(run.startedAt).toLocaleString('pl') : '—'}
+              {run.startedAt ? new Date(run.startedAt).toLocaleString(dateLocale) : '—'}
             </td>
             <td className="px-4 py-3" style={{ color: 'var(--muted-foreground)' }}>
-              {run.finishedAt ? new Date(run.finishedAt).toLocaleString('pl') : '—'}
+              {run.finishedAt ? new Date(run.finishedAt).toLocaleString(dateLocale) : '—'}
             </td>
             <td className="px-4 py-3">
-              <Link href={`/dashboard/runs/${run.id}`} className="text-blue-500 hover:underline">Szczegóły</Link>
+              <Link href={`/dashboard/runs/${run.id}`} className="text-blue-500 hover:underline">{t('details')}</Link>
             </td>
           </tr>
         ))}
         {runs.length === 0 && (
           <tr>
-            <td colSpan={5} className="px-4 py-8 text-center" style={{ color: 'var(--muted-foreground)' }}>Brak runów</td>
+            <td colSpan={5} className="px-4 py-8 text-center" style={{ color: 'var(--muted-foreground)' }}>{t('runsEmpty')}</td>
           </tr>
         )}
       </tbody>

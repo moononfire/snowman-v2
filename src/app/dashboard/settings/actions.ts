@@ -47,6 +47,22 @@ export async function saveSmtpConfigAction(smtp: { email: string; appPassword: s
   return { success: true }
 }
 
+export async function saveIgnoredPatternsAction(patterns: string[]) {
+  const session = await getSession()
+  if (!session) return { success: false }
+
+  const clientRows = await db.select().from(clients).where(eq(clients.id, session.clientId)).limit(1)
+  const existing = (clientRows[0]?.config ?? {}) as Record<string, unknown>
+
+  await db
+    .update(clients)
+    .set({ config: { ...existing, ignoredEmailPatterns: patterns } })
+    .where(eq(clients.id, session.clientId))
+
+  revalidatePath('/dashboard/settings')
+  return { success: true }
+}
+
 export async function testSmtpConnectionAction(smtp: { email: string; appPassword: string }) {
   const session = await getSession()
   if (!session) return { success: false, message: 'Brak sesji' }

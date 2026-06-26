@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { saveSmtpConfigAction, testSmtpConnectionAction } from './actions'
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { useT } from '@/lib/i18n/context'
 
 type SmtpConfig = {
   email: string
@@ -18,6 +19,7 @@ export function SmtpForm({ initial }: { initial: SmtpConfig }) {
   const [testState, setTestState] = useState<'idle' | 'ok' | 'error'>('idle')
   const [testMsg, setTestMsg] = useState('')
   const [isPending, startTransition] = useTransition()
+  const t = useT()
 
   const set = (k: keyof SmtpConfig) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [k]: e.target.value }))
@@ -42,22 +44,22 @@ export function SmtpForm({ initial }: { initial: SmtpConfig }) {
 
   return (
     <div className="rounded-lg border p-6" style={{ background: 'var(--card)' }}>
-      <h2 className="font-semibold mb-1">Email (Gmail)</h2>
+      <h2 className="font-semibold mb-1">{t('smtpTitle')}</h2>
       <p className="text-sm text-muted-foreground mb-4">
-        Połącz swoje konto Gmail, żeby wysyłać i odbierać maile z aplikacji.{' '}
+        {t('smtpDescription')}{' '}
         <a
           href="https://myaccount.google.com/apppasswords"
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline"
         >
-          Wygeneruj hasło aplikacji →
+          {t('smtpGeneratePassword')}
         </a>
       </p>
 
       <div className="space-y-3">
         <div>
-          <Label>Adres Gmail</Label>
+          <Label>{t('smtpGmailAddress')}</Label>
           <Input
             value={form.email}
             onChange={set('email')}
@@ -67,7 +69,7 @@ export function SmtpForm({ initial }: { initial: SmtpConfig }) {
           />
         </div>
         <div>
-          <Label>Hasło aplikacji</Label>
+          <Label>{t('smtpAppPassword')}</Label>
           <Input
             value={form.appPassword}
             onChange={set('appPassword')}
@@ -76,31 +78,31 @@ export function SmtpForm({ initial }: { initial: SmtpConfig }) {
             placeholder="xxxx xxxx xxxx xxxx"
           />
           <p className="text-xs text-muted-foreground mt-1">
-            16-znakowe hasło z Google Account → Security → App Passwords
+            {t('smtpAppPasswordHint')}
           </p>
         </div>
 
         <div className="flex items-center gap-3 pt-1">
           <Button onClick={save} disabled={isPending || !form.email || !form.appPassword}>
             {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-            Zapisz
+            {t('save')}
           </Button>
           <Button
             variant="outline"
             onClick={test}
             disabled={isPending || !form.email || !form.appPassword}
           >
-            Testuj połączenie
+            {t('smtpTestConnection')}
           </Button>
 
           {saveState === 'saved' && (
             <span className="flex items-center gap-1 text-sm text-green-600">
-              <CheckCircle2 className="h-4 w-4" /> Zapisano
+              <CheckCircle2 className="h-4 w-4" /> {t('saved')}
             </span>
           )}
           {saveState === 'error' && (
             <span className="flex items-center gap-1 text-sm text-red-600">
-              <XCircle className="h-4 w-4" /> Błąd zapisu
+              <XCircle className="h-4 w-4" /> {t('smtpSaveError')}
             </span>
           )}
         </div>
@@ -111,7 +113,7 @@ export function SmtpForm({ initial }: { initial: SmtpConfig }) {
               ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
               : <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
             }
-            <span>{testMsg || (testState === 'ok' ? 'Połączenie działa!' : 'Nie można połączyć.')}</span>
+            <span>{testMsg || (testState === 'ok' ? t('smtpConnectionWorks') : t('smtpCannotConnect'))}</span>
           </div>
         )}
       </div>

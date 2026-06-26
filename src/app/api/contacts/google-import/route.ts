@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { contacts } from '@/db/schema'
+import { clients, contacts } from '@/db/schema'
 import { getSession } from '@/lib/auth'
+import { eq } from 'drizzle-orm'
 
 type GoogleContact = {
   firstName?: string
@@ -32,6 +33,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Brak danych' }, { status: 400 })
   }
 
+  const [client] = await db.select({ config: clients.config }).from(clients).where(eq(clients.id, session.clientId))
+  const blockedCompanies: string[] = (() => {
+    const cfg = client?.config as Record<string, unknown> | undefined
+    const list = cfg?.blockedCompanies
+    return Array.isArray(list) ? list.filter((s): s is string => typeof s === 'string').map(s => s.toLowerCase()) : []
+  })()
+
   const data = rows
     .map((r) => ({
       clientId: session.clientId,
@@ -47,12 +55,13 @@ export async function POST(req: NextRequest) {
       source: 'GOOGLE_SCRAPE' as const,
     }))
     .filter((r) => r.firstName && r.phone)
+    .filter((r) => !r.company || !blockedCompanies.includes(r.company.toLowerCase()))
 
   if (data.length === 0) {
     return NextResponse.json({ error: 'Brak prawidłowych rekordów (wymagane: firstName, phone)' }, { status: 400 })
   }
 
-  const inserted = await db.insert(contacts).values(data).returning()
+  const inserted = await db.insert(contacts).values(data).onConflictDoNothing({ target: [contacts.clientId, contacts.googlePlaceId] }).returning()
 
   return NextResponse.json({ created: inserted.length }, { status: 201 })
 }

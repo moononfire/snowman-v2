@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { useT, useDateLocale } from '@/lib/i18n/context'
 
 type VpsFile = {
   name: string
@@ -19,6 +20,8 @@ type FileSortField = 'name' | 'sizeBytes' | 'modifiedAt'
 type SortDir = 'asc' | 'desc'
 
 export default function FilesPage() {
+  const t = useT()
+  const dateLocale = useDateLocale()
   const [files, setFiles] = useState<VpsFile[]>([])
   const [loading, setLoading] = useState(true)
   const [sortField, setSortField] = useState<FileSortField>('modifiedAt')
@@ -34,7 +37,7 @@ export default function FilesPage() {
   useEffect(() => { loadFiles() }, [])
 
   async function deleteFile(name: string) {
-    if (!confirm(`Usunąć plik ${name}?`)) return
+    if (!confirm(`${t('filesConfirmDelete')} ${name}?`)) return
     await fetch(`/api/files/${encodeURIComponent(name)}`, { method: 'DELETE' })
     loadFiles()
   }
@@ -60,21 +63,21 @@ export default function FilesPage() {
   }, [files, sortField, sortDir])
 
   const columns: [FileSortField, string][] = [
-    ['name', 'Nazwa pliku'],
-    ['sizeBytes', 'Rozmiar'],
-    ['modifiedAt', 'Zmodyfikowany'],
+    ['name', t('filesColName')],
+    ['sizeBytes', t('filesColSize')],
+    ['modifiedAt', t('filesColModified')],
   ]
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Pliki</h1>
-        <button onClick={loadFiles} className="text-sm hover:underline" style={{ color: 'var(--muted-foreground)' }}>Odśwież</button>
+        <h1 className="text-2xl font-bold">{t('filesTitle')}</h1>
+        <button onClick={loadFiles} className="text-sm hover:underline" style={{ color: 'var(--muted-foreground)' }}>{t('refresh')}</button>
       </div>
 
       <div className="rounded-lg border overflow-hidden" style={{ background: 'var(--card)' }}>
         {loading ? (
-          <div className="p-8 text-center" style={{ color: 'var(--muted-foreground)' }}>Ładowanie...</div>
+          <div className="p-8 text-center" style={{ color: 'var(--muted-foreground)' }}>{t('loading')}</div>
         ) : (
           <table className="w-full text-sm">
             <thead>
@@ -101,7 +104,7 @@ export default function FilesPage() {
                   <td className="px-4 py-3 font-mono">{f.name}</td>
                   <td className="px-4 py-3" style={{ color: 'var(--muted-foreground)' }}>{formatBytes(f.sizeBytes)}</td>
                   <td className="px-4 py-3" style={{ color: 'var(--muted-foreground)' }}>
-                    {new Date(f.modifiedAt).toLocaleString('pl')}
+                    {new Date(f.modifiedAt).toLocaleString(dateLocale)}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-3 justify-end">
@@ -109,13 +112,13 @@ export default function FilesPage() {
                         href={`/api/files/${encodeURIComponent(f.name)}`}
                         className="text-blue-500 hover:underline text-xs"
                       >
-                        Pobierz
+                        {t('download')}
                       </a>
                       <button
                         onClick={() => deleteFile(f.name)}
                         className="text-red-500 hover:underline text-xs"
                       >
-                        Usuń
+                        {t('delete')}
                       </button>
                     </div>
                   </td>
@@ -123,7 +126,7 @@ export default function FilesPage() {
               ))}
               {files.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center" style={{ color: 'var(--muted-foreground)' }}>Brak plików</td>
+                  <td colSpan={4} className="px-4 py-8 text-center" style={{ color: 'var(--muted-foreground)' }}>{t('filesEmpty')}</td>
                 </tr>
               )}
             </tbody>

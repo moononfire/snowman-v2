@@ -1,11 +1,14 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Search, Check, Lock, Pencil, Trash2, X, Globe, ArrowUp, ArrowDown, ArrowUpDown, ChevronDown, MapPin } from 'lucide-react'
+import { Search, Check, Lock, Pencil, Trash2, X, Globe, ArrowUp, ArrowDown, ArrowUpDown, ChevronDown, MapPin, Tag, Columns3 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { CONTACT_SOURCE_LABELS, CONTACT_SOURCE_COLORS, CALL_STATUS_LABELS, CALL_STATUS_COLORS, type CallStatus } from '@/lib/callTypes'
+import { CONTACT_SOURCE_LABEL_KEYS, CONTACT_SOURCE_COLORS, CALL_STATUS_LABEL_KEYS, CALL_STATUS_COLORS, type CallStatus } from '@/lib/callTypes'
+import { useT, useDateLocale } from '@/lib/i18n/context'
 
 type ContactSource = 'MANUAL' | 'CSV_IMPORT' | 'GOOGLE_SCRAPE'
+
+export type ContactEmail = { id: string; email: string; isPrimary: boolean }
 
 export type Contact = {
   id: string
@@ -22,12 +25,17 @@ export type Contact = {
   tags: string | null
   source: ContactSource
   createdAt: string
+  googleMapsUrl: string | null
+  googlePlaceId: string | null
   listContacts: { status: CallStatus; notes: string | null; calledAt: string | null }[]
   _count?: { listContacts: number }
+  emails?: ContactEmail[]
 }
 
-type SortField = 'name' | 'phone' | 'company' | 'city' | 'email' | 'website' | 'source' | 'status' | 'note' | 'createdAt'
+type SortField = 'company' | 'phone' | 'category' | 'city' | 'email' | 'website' | 'source' | 'status' | 'note' | 'createdAt'
 type SortDir = 'asc' | 'desc'
+
+const ALL_SORT_FIELDS: SortField[] = ['company', 'phone', 'category', 'city', 'email', 'website', 'source', 'status', 'note', 'createdAt']
 
 interface ContactsBrowserProps {
   selectable?: boolean
@@ -44,38 +52,6 @@ interface ContactsBrowserProps {
 type SourceFilter = '' | 'MANUAL' | 'CSV_IMPORT' | 'GOOGLE_SCRAPE'
 type BoolFilter = '' | 'yes' | 'no'
 
-const WEBSITE_OPTIONS: { value: BoolFilter; label: string }[] = [
-  { value: '', label: 'Wszystkie' },
-  { value: 'yes', label: 'Z WWW' },
-  { value: 'no', label: 'Bez WWW' },
-]
-
-const SOURCE_OPTIONS: { value: SourceFilter; label: string }[] = [
-  { value: '', label: 'Wszystkie' },
-  { value: 'MANUAL', label: 'Ręczne' },
-  { value: 'CSV_IMPORT', label: 'CSV' },
-  { value: 'GOOGLE_SCRAPE', label: 'Google' },
-]
-
-const CALLED_OPTIONS: { value: BoolFilter; label: string }[] = [
-  { value: '', label: 'Wszyscy' },
-  { value: 'yes', label: 'Obdzwonieni' },
-  { value: 'no', label: 'Nieobdzwonieni' },
-]
-
-const COMPANY_OPTIONS: { value: BoolFilter; label: string }[] = [
-  { value: '', label: 'Wszystkie' },
-  { value: 'yes', label: 'Z firmą' },
-  { value: 'no', label: 'Bez' },
-]
-
-const EMAIL_OPTIONS: { value: BoolFilter; label: string }[] = [
-  { value: '', label: 'Wszystkie' },
-  { value: 'yes', label: 'Z emailem' },
-  { value: 'no', label: 'Bez' },
-]
-
-
 export function ContactsBrowser({
   selectable = false,
   excludeIds = [],
@@ -86,22 +62,65 @@ export function ContactsBrowser({
   rowActions,
   refreshKey = 0,
 }: ContactsBrowserProps) {
+  const t = useT()
+  const dateLocale = useDateLocale()
+
+  const WEBSITE_OPTIONS: { value: BoolFilter; label: string }[] = [
+    { value: '', label: t('browserAll') },
+    { value: 'yes', label: t('browserWithWWW') },
+    { value: 'no', label: t('browserWithoutWWW') },
+  ]
+
+  const SOURCE_OPTIONS: { value: SourceFilter; label: string }[] = [
+    { value: '', label: t('browserAll') },
+    { value: 'MANUAL', label: t('browserManual') },
+    { value: 'CSV_IMPORT', label: t('browserCSV') },
+    { value: 'GOOGLE_SCRAPE', label: t('browserGoogle') },
+  ]
+
+  const EMAIL_OPTIONS: { value: BoolFilter; label: string }[] = [
+    { value: '', label: t('browserAll') },
+    { value: 'yes', label: t('browserWithEmail') },
+    { value: 'no', label: t('browserWithoutEmail') },
+  ]
+
   const [contacts, setContacts] = useState<Contact[]>([])
   const [search, setSearch] = useState('')
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('')
-  const [tagsFilter, setTagsFilter] = useState('')
-  const [companyFilter, setCompanyFilter] = useState<BoolFilter>('')
   const [emailFilter, setEmailFilter] = useState<BoolFilter>('')
   const [websiteFilter, setWebsiteFilter] = useState<BoolFilter>('')
-  const [calledFilter, setCalledFilter] = useState<BoolFilter>('')
-  const [cityFilter, setCityFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<CallStatus[]>([])
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
+  const statusDropdownRef = useRef<HTMLDivElement>(null)
+  const [cityFilter, setCityFilter] = useState<string[]>([])
   const [availableCities, setAvailableCities] = useState<string[]>([])
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false)
   const [citySearch, setCitySearch] = useState('')
   const cityDropdownRef = useRef<HTMLDivElement>(null)
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([])
+  const [availableCategories, setAvailableCategories] = useState<string[]>([])
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false)
+  const [categorySearch, setCategorySearch] = useState('')
+  const categoryDropdownRef = useRef<HTMLDivElement>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [emailPickerContactId, setEmailPickerContactId] = useState<string | null>(null)
+  const emailPickerRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(true)
   const [sortField, setSortField] = useState<SortField>('createdAt')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [columnsDropdownOpen, setColumnsDropdownOpen] = useState(false)
+  const columnsDropdownRef = useRef<HTMLDivElement>(null)
+  const [visibleColumns, setVisibleColumns] = useState<Set<SortField>>(new Set(ALL_SORT_FIELDS))
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('contacts-visible-columns')
+      if (stored) {
+        const parsed: SortField[] = JSON.parse(stored)
+        if (Array.isArray(parsed) && parsed.length > 0) setVisibleColumns(new Set(parsed))
+      }
+    } catch {}
+  }, [])
 
   const excludeIdsKey = excludeIds.join(',')
 
@@ -110,12 +129,10 @@ export function ContactsBrowser({
     const params = new URLSearchParams()
     if (search) params.set('q', search)
     if (sourceFilter) params.set('source', sourceFilter)
-    if (tagsFilter) params.set('tags', tagsFilter)
-    if (companyFilter) params.set('hasCompany', companyFilter)
     if (emailFilter) params.set('hasEmail', emailFilter)
     if (websiteFilter) params.set('hasWebsite', websiteFilter)
-    if (calledFilter) params.set('called', calledFilter)
-    if (cityFilter) params.set('city', cityFilter)
+    if (cityFilter.length > 0) params.set('city', cityFilter.join(','))
+    if (categoryFilter.length > 0) params.set('tags', categoryFilter.join(','))
     const res = await fetch(`/api/contacts?${params}`)
     if (res.ok) {
       const all: Contact[] = await res.json()
@@ -124,23 +141,52 @@ export function ContactsBrowser({
     }
     setLoading(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, sourceFilter, tagsFilter, companyFilter, emailFilter, websiteFilter, calledFilter, cityFilter, excludeIdsKey, refreshKey])
+  }, [search, sourceFilter, emailFilter, websiteFilter, cityFilter, categoryFilter, excludeIdsKey, refreshKey])
 
   useEffect(() => {
-    const t = setTimeout(fetchContacts, 200)
-    return () => clearTimeout(t)
+    const tm = setTimeout(fetchContacts, 200)
+    return () => clearTimeout(tm)
   }, [fetchContacts])
 
   useEffect(() => {
     fetch('/api/contacts/cities')
       .then((r) => (r.ok ? r.json() : []))
       .then(setAvailableCities)
+    fetch('/api/contacts/categories')
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setAvailableCategories)
   }, [refreshKey])
+
+  function toggleColumn(field: SortField) {
+    setVisibleColumns((prev) => {
+      const next = new Set(prev)
+      if (next.has(field)) {
+        if (next.size <= 1) return prev
+        next.delete(field)
+      } else {
+        next.add(field)
+      }
+      try { localStorage.setItem('contacts-visible-columns', JSON.stringify([...next])) } catch {}
+      return next
+    })
+  }
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (cityDropdownRef.current && !cityDropdownRef.current.contains(e.target as Node)) {
         setCityDropdownOpen(false)
+      }
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
+        setCategoryDropdownOpen(false)
+      }
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) {
+        setStatusDropdownOpen(false)
+      }
+      if (columnsDropdownRef.current && !columnsDropdownRef.current.contains(e.target as Node)) {
+        setColumnsDropdownOpen(false)
+      }
+      if (emailPickerRef.current && !emailPickerRef.current.contains(e.target as Node)) {
+        setEmailPickerContactId(null)
       }
     }
     document.addEventListener('mousedown', handleClick)
@@ -153,8 +199,19 @@ export function ContactsBrowser({
     return availableCities.filter((c) => c.toLowerCase().includes(q))
   }, [availableCities, citySearch])
 
+  const filteredCategories = useMemo(() => {
+    if (!categorySearch) return availableCategories
+    const q = categorySearch.toLowerCase()
+    return availableCategories.filter((c) => c.toLowerCase().includes(q))
+  }, [availableCategories, categorySearch])
+
+  const BLOCKED_STATUSES = new Set<CallStatus>(['INTERESTED', 'NOT_INTERESTED', 'NOT_RELEVANT', 'WRONG_NUMBER'])
+
   function isOccupied(c: Contact) {
-    return selectable && (c._count?.listContacts ?? 0) > 0
+    if (!selectable) return false
+    if ((c._count?.listContacts ?? 0) > 0) return true
+    const status = c.listContacts[0]?.status as CallStatus | undefined
+    return status !== undefined && BLOCKED_STATUSES.has(status)
   }
 
   function toggleContact(c: Contact) {
@@ -176,17 +233,17 @@ export function ContactsBrowser({
     onSelectionChange(next)
   }
 
-  const hasActiveFilters = sourceFilter || tagsFilter || companyFilter || emailFilter || websiteFilter || calledFilter || cityFilter
+  const hasActiveFilters = sourceFilter || emailFilter || websiteFilter || cityFilter.length > 0 || categoryFilter.length > 0 || statusFilter.length > 0
 
   function clearFilters() {
     setSourceFilter('')
-    setTagsFilter('')
-    setCompanyFilter('')
     setEmailFilter('')
     setWebsiteFilter('')
-    setCalledFilter('')
-    setCityFilter('')
+    setStatusFilter([])
+    setCityFilter([])
     setCitySearch('')
+    setCategoryFilter([])
+    setCategorySearch('')
   }
 
   const availableContacts = contacts.filter((c) => !isOccupied(c))
@@ -194,7 +251,7 @@ export function ContactsBrowser({
   const someSelected = !allSelected && availableContacts.some((c) => selected.has(c.id))
   const hasFilters = search || hasActiveFilters
   const showActions = !!(onEdit || onDelete || rowActions)
-  const colCount = 10 + (selectable ? 1 : 0) + (showActions ? 1 : 0)
+  const colCount = visibleColumns.size + (selectable ? 1 : 0) + (showActions ? 1 : 0)
 
   function toggleSort(field: SortField) {
     if (sortField === field) {
@@ -212,9 +269,9 @@ export function ContactsBrowser({
 
   function getContactSortValue(c: Contact, field: SortField): string {
     switch (field) {
-      case 'name': return `${c.firstName} ${c.lastName ?? ''}`.toLowerCase()
-      case 'phone': return c.phone
       case 'company': return (c.company ?? '').toLowerCase()
+      case 'phone': return c.phone
+      case 'category': return (c.tags ?? '').toLowerCase()
       case 'city': return (c.city ?? '').toLowerCase()
       case 'email': return (c.email ?? '').toLowerCase()
       case 'website': return (c.website ?? '').toLowerCase()
@@ -226,16 +283,23 @@ export function ContactsBrowser({
   }
 
   const sortedContacts = useMemo(() => {
-    const sorted = [...contacts].sort((a, b) => {
+    let list = [...contacts]
+    if (statusFilter.length > 0) {
+      list = list.filter((c) => {
+        const effectiveStatus: CallStatus = (c.listContacts[0]?.status as CallStatus) ?? 'NOT_CALLED'
+        return statusFilter.includes(effectiveStatus)
+      })
+    }
+    list.sort((a, b) => {
       const va = getContactSortValue(a, sortField)
       const vb = getContactSortValue(b, sortField)
       if (va < vb) return sortDir === 'asc' ? -1 : 1
       if (va > vb) return sortDir === 'asc' ? 1 : -1
       return 0
     })
-    return sorted
+    return list
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contacts, sortField, sortDir])
+  }, [contacts, sortField, sortDir, statusFilter])
 
   return (
     <div>
@@ -244,7 +308,7 @@ export function ContactsBrowser({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           className="pl-9"
-          placeholder="Szukaj po nazwie, telefonie, firmie, tagach..."
+          placeholder={t('browserSearchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -253,7 +317,7 @@ export function ContactsBrowser({
       {/* Filter bar */}
       <div className="bg-muted/50 border border-border rounded-lg px-4 py-3 mb-4">
         <div className="grid grid-cols-[auto_1fr] gap-y-2.5 items-center text-xs">
-          <span className="text-muted-foreground font-medium w-24">Źródło</span>
+          <span className="text-muted-foreground font-medium w-24">{t('browserFilterSource')}</span>
           <div className="flex flex-wrap gap-1">
             {SOURCE_OPTIONS.map((o) => (
               <button key={o.value} onClick={() => setSourceFilter(o.value)}
@@ -263,17 +327,7 @@ export function ContactsBrowser({
             ))}
           </div>
 
-          <span className="text-muted-foreground font-medium w-24">Firma</span>
-          <div className="flex flex-wrap gap-1">
-            {COMPANY_OPTIONS.map((o) => (
-              <button key={o.value} onClick={() => setCompanyFilter(o.value)}
-                className={`px-2.5 py-1 rounded-full font-medium transition-colors ${companyFilter === o.value ? 'bg-foreground text-background' : 'bg-background border border-border text-muted-foreground hover:text-foreground'}`}>
-                {o.label}
-              </button>
-            ))}
-          </div>
-
-          <span className="text-muted-foreground font-medium w-24">Email</span>
+<span className="text-muted-foreground font-medium w-24">{t('browserFilterEmail')}</span>
           <div className="flex flex-wrap gap-1">
             {EMAIL_OPTIONS.map((o) => (
               <button key={o.value} onClick={() => setEmailFilter(o.value)}
@@ -283,7 +337,7 @@ export function ContactsBrowser({
             ))}
           </div>
 
-          <span className="text-muted-foreground font-medium w-24">Strona www</span>
+          <span className="text-muted-foreground font-medium w-24">{t('browserFilterWebsite')}</span>
           <div className="flex flex-wrap gap-1">
             {WEBSITE_OPTIONS.map((o) => (
               <button key={o.value} onClick={() => setWebsiteFilter(o.value)}
@@ -293,29 +347,68 @@ export function ContactsBrowser({
             ))}
           </div>
 
-          <span className="text-muted-foreground font-medium w-24">Rozmowy</span>
-          <div className="flex flex-wrap gap-1">
-            {CALLED_OPTIONS.map((o) => (
-              <button key={o.value} onClick={() => setCalledFilter(o.value)}
-                className={`px-2.5 py-1 rounded-full font-medium transition-colors ${calledFilter === o.value ? 'bg-foreground text-background' : 'bg-background border border-border text-muted-foreground hover:text-foreground'}`}>
-                {o.label}
+          <span className="text-muted-foreground font-medium w-24">{t('browserFilterCalls')}</span>
+          <div className="flex items-center gap-2">
+            <div className="relative" ref={statusDropdownRef}>
+              <button
+                onClick={() => setStatusDropdownOpen((o) => !o)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium text-xs transition-colors ${
+                  statusFilter.length > 0
+                    ? 'bg-foreground text-background'
+                    : 'bg-background border border-border text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {statusFilter.length === 0 ? t('browserAllContacts') : statusFilter.length === 1 ? t(CALL_STATUS_LABEL_KEYS[statusFilter[0]]) : `${statusFilter.length} ${t('browserSelected')}`}
+                <ChevronDown className="h-3 w-3" />
               </button>
-            ))}
+              {statusDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 w-52 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+                  <div className="py-1">
+                    {(Object.keys(CALL_STATUS_LABEL_KEYS) as CallStatus[]).map((status) => {
+                      const isSelected = statusFilter.includes(status)
+                      return (
+                        <button
+                          key={status}
+                          onClick={() => setStatusFilter((prev) => isSelected ? prev.filter((s) => s !== status) : [...prev, status])}
+                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors flex items-center gap-2 ${
+                            isSelected ? 'font-semibold text-foreground bg-muted/50' : 'text-muted-foreground'
+                          }`}
+                        >
+                          <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                            isSelected ? 'bg-blue-600 border-blue-600' : 'border-border'
+                          }`}>
+                            {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+                          </span>
+                          <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${CALL_STATUS_COLORS[status]}`}>
+                            {t(CALL_STATUS_LABEL_KEYS[status])}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+            {statusFilter.length > 0 && (
+              <button onClick={() => setStatusFilter([])} className="text-muted-foreground hover:text-foreground">
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </div>
 
-          <span className="text-muted-foreground font-medium w-24">Miejscowość</span>
+          <span className="text-muted-foreground font-medium w-24">{t('browserFilterCity')}</span>
           <div className="flex items-center gap-2">
             <div className="relative" ref={cityDropdownRef}>
               <button
                 onClick={() => { setCityDropdownOpen((o) => !o); setCitySearch('') }}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium text-xs transition-colors ${
-                  cityFilter
+                  cityFilter.length > 0
                     ? 'bg-foreground text-background'
                     : 'bg-background border border-border text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <MapPin className="h-3 w-3" />
-                {cityFilter || 'Wszystkie'}
+                {cityFilter.length === 0 ? t('browserAll') : cityFilter.length === 1 ? cityFilter[0] : `${cityFilter.length} ${t('browserSelected')}`}
                 <ChevronDown className="h-3 w-3" />
               </button>
               {cityDropdownOpen && (
@@ -323,42 +416,46 @@ export function ContactsBrowser({
                   <div className="p-2 border-b border-border">
                     <Input
                       className="h-7 text-xs"
-                      placeholder="Szukaj miasta..."
+                      placeholder={t('browserSearchCity')}
                       value={citySearch}
                       onChange={(e) => setCitySearch(e.target.value)}
                       autoFocus
                     />
                   </div>
                   <div className="max-h-48 overflow-y-auto">
-                    <button
-                      onClick={() => { setCityFilter(''); setCityDropdownOpen(false) }}
-                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors ${
-                        !cityFilter ? 'font-semibold text-foreground' : 'text-muted-foreground'
-                      }`}
-                    >
-                      Wszystkie
-                    </button>
-                    {filteredCities.map((city) => (
-                      <button
-                        key={city}
-                        onClick={() => { setCityFilter(city); setCityDropdownOpen(false) }}
-                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors ${
-                          cityFilter === city ? 'font-semibold text-foreground bg-muted/50' : 'text-muted-foreground'
-                        }`}
-                      >
-                        {city}
-                      </button>
-                    ))}
+                    {filteredCities.map((city) => {
+                      const isSelected = cityFilter.includes(city)
+                      return (
+                        <button
+                          key={city}
+                          onClick={() => {
+                            setCityFilter((prev) =>
+                              isSelected ? prev.filter((c) => c !== city) : [...prev, city]
+                            )
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors flex items-center gap-2 ${
+                            isSelected ? 'font-semibold text-foreground bg-muted/50' : 'text-muted-foreground'
+                          }`}
+                        >
+                          <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                            isSelected ? 'bg-blue-600 border-blue-600' : 'border-border'
+                          }`}>
+                            {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+                          </span>
+                          {city}
+                        </button>
+                      )
+                    })}
                     {filteredCities.length === 0 && (
-                      <div className="px-3 py-2 text-xs text-muted-foreground">Brak wyników</div>
+                      <div className="px-3 py-2 text-xs text-muted-foreground">{t('noResults')}</div>
                     )}
                   </div>
                 </div>
               )}
             </div>
-            {cityFilter && (
+            {cityFilter.length > 0 && (
               <button
-                onClick={() => { setCityFilter(''); setCitySearch('') }}
+                onClick={() => { setCityFilter([]); setCitySearch('') }}
                 className="text-muted-foreground hover:text-foreground"
               >
                 <X className="h-3 w-3" />
@@ -366,21 +463,159 @@ export function ContactsBrowser({
             )}
           </div>
 
-          <span className="text-muted-foreground font-medium w-24">Tagi</span>
+          <span className="text-muted-foreground font-medium w-24">{t('browserFilterCategory')}</span>
           <div className="flex items-center gap-2">
-            <Input
-              className="h-7 text-xs w-36"
-              placeholder="np. VIP"
-              value={tagsFilter}
-              onChange={(e) => setTagsFilter(e.target.value)}
-            />
-            {hasActiveFilters && (
-              <button onClick={clearFilters} className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
+            <div className="relative" ref={categoryDropdownRef}>
+              <button
+                onClick={() => { setCategoryDropdownOpen((o) => !o); setCategorySearch('') }}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium text-xs transition-colors ${
+                  categoryFilter.length > 0
+                    ? 'bg-foreground text-background'
+                    : 'bg-background border border-border text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Tag className="h-3 w-3" />
+                {categoryFilter.length === 0 ? t('browserAll') : categoryFilter.length === 1 ? categoryFilter[0] : `${categoryFilter.length} ${t('browserSelected')}`}
+                <ChevronDown className="h-3 w-3" />
+              </button>
+              {categoryDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 w-56 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+                  <div className="p-2 border-b border-border">
+                    <Input
+                      className="h-7 text-xs"
+                      placeholder={t('browserSearchCategory')}
+                      value={categorySearch}
+                      onChange={(e) => setCategorySearch(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto">
+                    {filteredCategories.map((cat) => {
+                      const isSelected = categoryFilter.includes(cat)
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => {
+                            setCategoryFilter((prev) =>
+                              isSelected ? prev.filter((c) => c !== cat) : [...prev, cat]
+                            )
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors flex items-center gap-2 ${
+                            isSelected ? 'font-semibold text-foreground bg-muted/50' : 'text-muted-foreground'
+                          }`}
+                        >
+                          <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                            isSelected ? 'bg-blue-600 border-blue-600' : 'border-border'
+                          }`}>
+                            {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+                          </span>
+                          {cat}
+                        </button>
+                      )
+                    })}
+                    {filteredCategories.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">{t('noResults')}</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            {categoryFilter.length > 0 && (
+              <button
+                onClick={() => { setCategoryFilter([]); setCategorySearch('') }}
+                className="text-muted-foreground hover:text-foreground"
+              >
                 <X className="h-3 w-3" />
-                Wyczyść
               </button>
             )}
           </div>
+
+          {hasActiveFilters && (
+            <>
+              <span className="text-muted-foreground font-medium w-24" />
+              <div>
+                <button onClick={clearFilters} className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-xs">
+                  <X className="h-3 w-3" />
+                  {t('browserClearFilters')}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Count + column picker */}
+      <div className="flex justify-between items-center mb-2">
+        <span className="text-xs text-muted-foreground">
+          {loading ? '…' : `${sortedContacts.length} ${t('browserContactCount')}`}
+        </span>
+        <div className="relative" ref={columnsDropdownRef}>
+          <button
+            onClick={() => setColumnsDropdownOpen((o) => !o)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium text-xs transition-colors border ${
+              visibleColumns.size < ALL_SORT_FIELDS.length
+                ? 'bg-foreground text-background border-foreground'
+                : 'bg-background border-border text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Columns3 className="h-3.5 w-3.5" />
+            {t('browserColumns')}
+            {visibleColumns.size < ALL_SORT_FIELDS.length && (
+              <span className="bg-background/20 rounded-full px-1">{visibleColumns.size}/{ALL_SORT_FIELDS.length}</span>
+            )}
+          </button>
+          {columnsDropdownOpen && (
+            <div className="absolute top-full right-0 mt-1 w-52 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+              <div className="py-1">
+                {(ALL_SORT_FIELDS.map((field) => {
+                  const labels: Record<SortField, string> = {
+                    company: t('browserColCompany'),
+                    phone: t('browserColPhone'),
+                    category: t('browserColCategory'),
+                    city: t('browserColCity'),
+                    email: t('browserColEmail'),
+                    website: t('browserColWWW'),
+                    source: t('browserColSource'),
+                    status: t('browserColStatus'),
+                    note: t('browserColNote'),
+                    createdAt: t('browserColAdded'),
+                  }
+                  const isVisible = visibleColumns.has(field)
+                  const isLast = visibleColumns.size === 1 && isVisible
+                  return (
+                    <button
+                      key={field}
+                      onClick={() => toggleColumn(field)}
+                      disabled={isLast}
+                      className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center gap-2 ${
+                        isLast ? 'opacity-40 cursor-not-allowed' : 'hover:bg-muted'
+                      } ${isVisible ? 'text-foreground' : 'text-muted-foreground'}`}
+                    >
+                      <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                        isVisible ? 'bg-blue-600 border-blue-600' : 'border-border'
+                      }`}>
+                        {isVisible && <Check className="h-2.5 w-2.5 text-white" />}
+                      </span>
+                      {labels[field]}
+                    </button>
+                  )
+                }))}
+              </div>
+              {visibleColumns.size < ALL_SORT_FIELDS.length && (
+                <div className="border-t border-border px-3 py-1.5">
+                  <button
+                    onClick={() => {
+                      setVisibleColumns(new Set(ALL_SORT_FIELDS))
+                      try { localStorage.setItem('contacts-visible-columns', JSON.stringify(ALL_SORT_FIELDS)) } catch {}
+                    }}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {t('browserShowAllColumns')}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -406,17 +641,17 @@ export function ContactsBrowser({
                 </th>
               )}
               {([
-                ['name', 'Imię i nazwisko'],
-                ['phone', 'Telefon'],
-                ['company', 'Firma'],
-                ['city', 'Miejscowość'],
-                ['email', 'Email'],
-                ['website', 'WWW'],
-                ['source', 'Źródło'],
-                ['status', 'Status'],
-                ['note', 'Notatka'],
-                ['createdAt', 'Dodano'],
-              ] as [SortField, string][]).map(([field, label]) => (
+                ['company', t('browserColCompany')],
+                ['phone', t('browserColPhone')],
+                ['category', t('browserColCategory')],
+                ['city', t('browserColCity')],
+                ['email', t('browserColEmail')],
+                ['website', t('browserColWWW')],
+                ['source', t('browserColSource')],
+                ['status', t('browserColStatus')],
+                ['note', t('browserColNote')],
+                ['createdAt', t('browserColAdded')],
+              ] as [SortField, string][]).filter(([field]) => visibleColumns.has(field)).map(([field, label]) => (
                 <th
                   key={field}
                   onClick={() => toggleSort(field)}
@@ -435,14 +670,14 @@ export function ContactsBrowser({
             {loading && (
               <tr>
                 <td colSpan={colCount} className="px-4 py-8 text-center text-muted-foreground">
-                  Ładowanie...
+                  {t('loading')}
                 </td>
               </tr>
             )}
             {!loading && contacts.length === 0 && (
               <tr>
                 <td colSpan={colCount} className="px-4 py-8 text-center text-muted-foreground">
-                  {hasFilters ? 'Brak wyników dla wybranych filtrów.' : 'Brak kontaktów.'}
+                  {hasFilters ? t('browserNoResults') : t('browserNoContacts')}
                 </td>
               </tr>
             )}
@@ -476,86 +711,227 @@ export function ContactsBrowser({
                     </td>
                   )}
 
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-foreground">
-                      {c.firstName} {c.lastName}
-                      {occupied && (
-                        <span className="ml-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
-                          zajęty
-                        </span>
-                      )}
-                    </div>
-                    {(c.position || c.tags) && (
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {c.position && (
-                          <span className="text-xs text-muted-foreground">{c.position}</span>
-                        )}
-                        {c.tags && (
-                          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                            {c.tags}
+                  {visibleColumns.has('company') && (
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-foreground">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const name = c.company || `${c.firstName} ${c.lastName ?? ''}`.trim()
+                            if (name) {
+                              navigator.clipboard.writeText(name)
+                              setCopiedId(`company-${c.id}`)
+                              setTimeout(() => setCopiedId((v) => v === `company-${c.id}` ? null : v), 1500)
+                            }
+                          }}
+                          className="hover:text-blue-600 transition-colors cursor-pointer text-left"
+                          title={t('browserClickToCopy')}
+                        >
+                          {copiedId === `company-${c.id}` ? t('copied') : (c.company || `${c.firstName} ${c.lastName ?? ''}`.trim() || '—')}
+                        </button>
+                        {occupied && (
+                          <span className="ml-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                            {t('browserOccupied')}
                           </span>
                         )}
                       </div>
-                    )}
-                  </td>
+                      {(() => {
+                        const fullName = `${c.firstName} ${c.lastName ?? ''}`.trim()
+                        const isDifferent = c.company && fullName && fullName.toLowerCase() !== c.company.toLowerCase()
+                        return (isDifferent || c.position) ? (
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            {isDifferent && (
+                              <span className="text-xs text-muted-foreground">{fullName}</span>
+                            )}
+                            {c.position && (
+                              <span className="text-xs text-muted-foreground">{isDifferent ? '·' : ''} {c.position}</span>
+                            )}
+                          </div>
+                        ) : null
+                      })()}
+                    </td>
+                  )}
 
-                  <td className="px-4 py-3 font-mono text-sm text-foreground whitespace-nowrap">
-                    {c.phone}
-                  </td>
-
-                  <td className="px-4 py-3 text-muted-foreground text-sm">
-                    {c.company ?? <span className="text-border">—</span>}
-                  </td>
-
-                  <td className="px-4 py-3 text-muted-foreground text-sm whitespace-nowrap">
-                    {c.city ?? <span className="text-border">—</span>}
-                  </td>
-
-                  <td className="px-4 py-3 text-muted-foreground text-sm">
-                    {c.email ?? <span className="text-border">—</span>}
-                  </td>
-
-                  <td className="px-4 py-3">
-                    {c.website ? (
-                      <a
-                        href={c.website.startsWith('http') ? c.website : `https://${c.website}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                        title={c.website}
+                  {visibleColumns.has('phone') && (
+                    <td className="px-4 py-3 font-mono text-sm text-foreground whitespace-nowrap">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigator.clipboard.writeText(c.phone)
+                          setCopiedId(`phone-${c.id}`)
+                          setTimeout(() => setCopiedId((v) => v === `phone-${c.id}` ? null : v), 1500)
+                        }}
+                        className="hover:text-blue-600 transition-colors cursor-pointer"
+                        title={t('browserClickToCopy')}
                       >
-                        <Globe className="h-3.5 w-3.5 shrink-0" />
-                        <span className="max-w-[120px] truncate">{c.website.replace(/^https?:\/\//, '')}</span>
-                      </a>
-                    ) : (
-                      <span className="text-border">—</span>
-                    )}
-                  </td>
+                        {copiedId === `phone-${c.id}` ? t('copied') : c.phone}
+                      </button>
+                    </td>
+                  )}
 
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CONTACT_SOURCE_COLORS[c.source]}`}>
-                      {CONTACT_SOURCE_LABELS[c.source]}
-                    </span>
-                  </td>
+                  {visibleColumns.has('category') && (
+                    <td className="px-4 py-3 text-muted-foreground text-sm">
+                      {c.tags ? (
+                        <span className="text-xs text-muted-foreground">{c.tags}</span>
+                      ) : (
+                        <span className="text-border">—</span>
+                      )}
+                    </td>
+                  )}
 
-                  <td className="px-4 py-3">
-                    {c.listContacts[0] ? (
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CALL_STATUS_COLORS[c.listContacts[0].status]}`}>
-                        {CALL_STATUS_LABELS[c.listContacts[0].status]}
+                  {visibleColumns.has('city') && (
+                    <td className="px-4 py-3 text-muted-foreground text-sm whitespace-nowrap">
+                      {c.city ?? <span className="text-border">—</span>}
+                    </td>
+                  )}
+
+                  {visibleColumns.has('email') && (
+                    <td className="px-4 py-3 text-muted-foreground text-sm" onClick={(e) => e.stopPropagation()}>
+                      {(() => {
+                        const emailList = c.emails ?? []
+                        const primaryEmail = emailList.find(e => e.isPrimary)?.email ?? c.email
+                        if (emailList.length > 1) {
+                          return (
+                            <div className="relative" ref={emailPickerContactId === c.id ? emailPickerRef : undefined}>
+                              <button
+                                onClick={() => setEmailPickerContactId(emailPickerContactId === c.id ? null : c.id)}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:bg-blue-500/20 transition-colors"
+                              >
+                                {emailList.length} emaile
+                              </button>
+                              {emailPickerContactId === c.id && (
+                                <div className="absolute top-full left-0 mt-1 w-72 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+                                  <div className="p-2 border-b border-border">
+                                    <p className="text-xs text-muted-foreground font-medium">Wybierz email główny</p>
+                                  </div>
+                                  <div className="py-1">
+                                    {emailList.map((em) => (
+                                      <div key={em.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted">
+                                        <button
+                                          onClick={async () => {
+                                            await fetch(`/api/contacts/${c.id}/emails`, {
+                                              method: 'PATCH',
+                                              headers: { 'Content-Type': 'application/json' },
+                                              body: JSON.stringify({ email: em.email }),
+                                            })
+                                            setEmailPickerContactId(null)
+                                            fetchContacts()
+                                          }}
+                                          className={`flex-1 text-left text-xs font-mono truncate ${em.isPrimary ? 'text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
+                                          title={em.email}
+                                        >
+                                          {em.email}
+                                        </button>
+                                        {em.isPrimary && (
+                                          <span className="text-xs text-green-600 dark:text-green-400 shrink-0">główny</span>
+                                        )}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            navigator.clipboard.writeText(em.email)
+                                            setCopiedId(`email-${c.id}-${em.id}`)
+                                            setTimeout(() => setCopiedId(null), 1500)
+                                          }}
+                                          className="text-xs text-muted-foreground hover:text-foreground shrink-0"
+                                          title={t('browserClickToCopy')}
+                                        >
+                                          {copiedId === `email-${c.id}-${em.id}` ? t('copied') : 'kopiuj'}
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        }
+                        if (primaryEmail) {
+                          return (
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(primaryEmail)
+                                setCopiedId(`email-${c.id}`)
+                                setTimeout(() => setCopiedId((v) => v === `email-${c.id}` ? null : v), 1500)
+                              }}
+                              className="hover:text-blue-600 transition-colors cursor-pointer"
+                              title={t('browserClickToCopy')}
+                            >
+                              {copiedId === `email-${c.id}` ? t('copied') : primaryEmail}
+                            </button>
+                          )
+                        }
+                        return <span className="text-border">—</span>
+                      })()}
+                    </td>
+                  )}
+
+                  {visibleColumns.has('website') && (
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-1">
+                        {c.website ? (
+                          <a
+                            href={c.website.startsWith('http') ? c.website : `https://${c.website}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                            title={c.website}
+                          >
+                            <Globe className="h-3.5 w-3.5 shrink-0" />
+                            <span className="max-w-[120px] truncate">{c.website.replace(/^https?:\/\//, '')}</span>
+                          </a>
+                        ) : null}
+                        {(c.googleMapsUrl || c.googlePlaceId) ? (
+                          <a
+                            href={c.googleMapsUrl || `https://www.google.com/maps/place/?q=place_id:${c.googlePlaceId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-xs text-green-600 hover:underline"
+                            title="Google Maps"
+                          >
+                            <MapPin className="h-3.5 w-3.5 shrink-0" />
+                            <span>Maps</span>
+                          </a>
+                        ) : null}
+                        {!c.website && !c.googleMapsUrl && !c.googlePlaceId && (
+                          <span className="text-border">—</span>
+                        )}
+                      </div>
+                    </td>
+                  )}
+
+                  {visibleColumns.has('source') && (
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CONTACT_SOURCE_COLORS[c.source]}`}>
+                        {t(CONTACT_SOURCE_LABEL_KEYS[c.source])}
                       </span>
-                    ) : (
-                      <span className="text-border text-xs">—</span>
-                    )}
-                  </td>
+                    </td>
+                  )}
 
-                  <td className="px-4 py-3 text-muted-foreground text-xs max-w-[220px] truncate">
-                    {lastNote ?? <span className="text-border">—</span>}
-                  </td>
+                  {visibleColumns.has('status') && (
+                    <td className="px-4 py-3">
+                      {c.listContacts[0] ? (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CALL_STATUS_COLORS[c.listContacts[0].status]}`}>
+                          {t(CALL_STATUS_LABEL_KEYS[c.listContacts[0].status])}
+                        </span>
+                      ) : (
+                        <span className="text-border text-xs">—</span>
+                      )}
+                    </td>
+                  )}
 
-                  <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap">
-                    {c.createdAt ? new Date(c.createdAt).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}
-                  </td>
+                  {visibleColumns.has('note') && (
+                    <td className="px-4 py-3 text-muted-foreground text-xs max-w-[220px] truncate">
+                      {lastNote ?? <span className="text-border">—</span>}
+                    </td>
+                  )}
+
+                  {visibleColumns.has('createdAt') && (
+                    <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap">
+                      {c.createdAt ? new Date(c.createdAt).toLocaleDateString(dateLocale, { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}
+                    </td>
+                  )}
 
                   {showActions && (
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>

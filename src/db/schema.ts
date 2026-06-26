@@ -1,4 +1,4 @@
-import { pgTable, text, jsonb, timestamp, integer, real, index, uniqueIndex } from 'drizzle-orm/pg-core'
+import { pgTable, text, jsonb, timestamp, integer, real, boolean, index, uniqueIndex } from 'drizzle-orm/pg-core'
 
 export const clients = pgTable('clients', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -83,7 +83,19 @@ export const contacts = pgTable('contacts', {
   address: text('address'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
+}, (t) => [
+  uniqueIndex('contacts_client_place_id_unique').on(t.clientId, t.googlePlaceId),
+])
+
+export const contactEmails = pgTable('contact_emails', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  contactId: text('contact_id').notNull().references(() => contacts.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  isPrimary: boolean('is_primary').default(false).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('contact_emails_contact_id_email_idx').on(t.contactId, t.email),
+])
 
 export const lists = pgTable('lists', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),

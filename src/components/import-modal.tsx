@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { X, Upload, AlertCircle, CheckCircle } from 'lucide-react'
 import Papa from 'papaparse'
 import { Button } from '@/components/ui/button'
+import { useT } from '@/lib/i18n/context'
 
 const FIELD_MAP: Record<string, string> = {
   imie: 'firstName', 'imię': 'firstName',
@@ -18,6 +19,7 @@ const FIELD_MAP: Record<string, string> = {
 }
 
 export function ImportModal({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
+  const t = useT()
   const [preview, setPreview] = useState<Record<string, string>[]>([])
   const [mapped, setMapped] = useState<Record<string, string>[]>([])
   const [importing, setImporting] = useState(false)
@@ -43,7 +45,7 @@ export function ImportModal({ onClose, onImported }: { onClose: () => void; onIm
         setMapped(normalised)
         setError('')
       },
-      error: () => setError('Nie mogę odczytać pliku CSV'),
+      error: () => setError(t('importCannotRead')),
     })
   }
 
@@ -60,7 +62,7 @@ export function ImportModal({ onClose, onImported }: { onClose: () => void; onIm
     if (res.ok) {
       setResult(data)
     } else {
-      setError(data.error ?? 'Błąd importu')
+      setError(data.error ?? t('importError'))
     }
   }
 
@@ -68,7 +70,7 @@ export function ImportModal({ onClose, onImported }: { onClose: () => void; onIm
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-card rounded-xl shadow-xl w-full max-w-lg border border-border">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h2 className="font-semibold text-foreground">Import CSV</h2>
+          <h2 className="font-semibold text-foreground">{t('importTitle')}</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
@@ -78,7 +80,7 @@ export function ImportModal({ onClose, onImported }: { onClose: () => void; onIm
           {result ? (
             <div className="flex items-center gap-3 p-4 bg-green-500/10 rounded-lg">
               <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
-              <p className="text-green-700 dark:text-green-400 font-medium">Zaimportowano {result.created} kontaktów</p>
+              <p className="text-green-700 dark:text-green-400 font-medium">{t('importImported')} {result.created} {t('importContacts')}</p>
             </div>
           ) : (
             <>
@@ -89,8 +91,8 @@ export function ImportModal({ onClose, onImported }: { onClose: () => void; onIm
                 onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
               >
                 <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Przeciągnij plik CSV lub <span className="text-blue-600">kliknij, żeby wybrać</span></p>
-                <p className="text-xs text-muted-foreground mt-1">Nagłówki: imię, telefon, nazwisko, firma, stanowisko, email, notatka...</p>
+                <p className="text-sm text-muted-foreground">{t('importDragDrop')} <span className="text-blue-600">{t('importClickToSelect')}</span></p>
+                <p className="text-xs text-muted-foreground mt-1">{t('importHeaders')}</p>
                 <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]) }} />
               </div>
 
@@ -103,7 +105,7 @@ export function ImportModal({ onClose, onImported }: { onClose: () => void; onIm
 
               {preview.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium text-foreground mb-2">Podgląd ({mapped.length} wierszy):</p>
+                  <p className="text-sm font-medium text-foreground mb-2">{t('importPreview')} ({mapped.length} {t('importRows')}):</p>
                   <div className="overflow-x-auto rounded border border-border">
                     <table className="text-xs w-full">
                       <thead className="bg-muted">
@@ -132,12 +134,12 @@ export function ImportModal({ onClose, onImported }: { onClose: () => void; onIm
 
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-border">
           {result ? (
-            <Button onClick={onImported}>Gotowe</Button>
+            <Button onClick={onImported}>{t('done')}</Button>
           ) : (
             <>
-              <Button variant="outline" onClick={onClose}>Anuluj</Button>
+              <Button variant="outline" onClick={onClose}>{t('cancel')}</Button>
               <Button onClick={doImport} disabled={!mapped.length || importing}>
-                {importing ? 'Importowanie...' : `Importuj ${mapped.length} kontaktów`}
+                {importing ? t('importImporting') : `${t('importImportN')} ${mapped.length} ${t('importContacts')}`}
               </Button>
             </>
           )}

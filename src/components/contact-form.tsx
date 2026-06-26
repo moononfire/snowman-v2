@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { useT } from '@/lib/i18n/context'
 
 type Contact = {
   id?: string
@@ -31,6 +32,7 @@ export function ContactForm({
   onClose: () => void
   onSaved: () => void
 }) {
+  const t = useT()
   const [form, setForm] = useState({
     firstName: contact?.firstName ?? '',
     lastName: contact?.lastName ?? '',
@@ -68,7 +70,7 @@ export function ContactForm({
       <div className="bg-card rounded-xl shadow-xl w-full max-w-lg border border-border">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="font-semibold text-foreground">
-            {contact?.id ? 'Edytuj kontakt' : 'Nowy kontakt'}
+            {contact?.id ? t('contactFormEdit') : t('contactFormNew')}
           </h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
@@ -77,45 +79,45 @@ export function ContactForm({
         <div className="px-6 py-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Imię *</Label>
+              <Label>{t('contactFormFirstName')}</Label>
               <Input value={form.firstName} onChange={set('firstName')} className="mt-1" />
             </div>
             <div>
-              <Label>Nazwisko</Label>
+              <Label>{t('contactFormLastName')}</Label>
               <Input value={form.lastName} onChange={set('lastName')} className="mt-1" />
             </div>
           </div>
           <div>
-            <Label>Telefon *</Label>
+            <Label>{t('contactFormPhone')}</Label>
             <Input value={form.phone} onChange={set('phone')} className="mt-1" placeholder="+48 000 000 000" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Firma</Label>
+              <Label>{t('contactFormCompany')}</Label>
               <Input value={form.company} onChange={set('company')} className="mt-1" />
             </div>
             <div>
-              <Label>Stanowisko</Label>
+              <Label>{t('contactFormPosition')}</Label>
               <Input value={form.position} onChange={set('position')} className="mt-1" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Email</Label>
+              <Label>{t('contactFormEmail')}</Label>
               <Input value={form.email} onChange={set('email')} className="mt-1" type="email" />
             </div>
             <div>
-              <Label>Strona www</Label>
+              <Label>{t('contactFormWebsite')}</Label>
               <Input value={form.website} onChange={set('website')} className="mt-1" placeholder="https://..." />
             </div>
           </div>
           <div>
-            <Label>Miejscowość</Label>
+            <Label>{t('contactFormCity')}</Label>
             <Input value={form.city} onChange={set('city')} className="mt-1" placeholder="np. Warszawa" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Notatka przed rozmową</Label>
+              <Label>{t('contactFormPreCallNote')}</Label>
               <Textarea
                 value={form.preCallNote}
                 onChange={set('preCallNote')}
@@ -125,7 +127,7 @@ export function ContactForm({
               />
             </div>
             <div>
-              <Label>Notatka po rozmowie</Label>
+              <Label>{t('contactFormPostCallNote')}</Label>
               <Textarea
                 value={form.postCallNote}
                 onChange={set('postCallNote')}
@@ -136,14 +138,14 @@ export function ContactForm({
             </div>
           </div>
           <div>
-            <Label>Tagi (oddziel przecinkiem)</Label>
+            <Label>{t('contactFormTags')}</Label>
             <Input value={form.tags} onChange={set('tags')} className="mt-1" placeholder="B2B, warm, CEO..." />
           </div>
         </div>
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-border">
-          <Button variant="outline" onClick={onClose}>Anuluj</Button>
+          <Button variant="outline" onClick={onClose}>{t('cancel')}</Button>
           <Button onClick={save} disabled={saving || !form.firstName || !form.phone}>
-            {saving ? 'Zapisywanie...' : 'Zapisz'}
+            {saving ? t('saving') : t('save')}
           </Button>
         </div>
       </div>

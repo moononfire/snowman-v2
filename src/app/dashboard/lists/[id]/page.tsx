@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { Play, UserPlus, Trash2, ArrowLeft, ArrowUp, ArrowDown, ArrowUpDown, LinkIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AddContactsModal } from '@/components/add-contacts-modal'
-import { CALL_STATUS_LABELS, CALL_STATUS_COLORS } from '@/lib/callTypes'
+import { CALL_STATUS_LABEL_KEYS, CALL_STATUS_COLORS } from '@/lib/callTypes'
+import { useT } from '@/lib/i18n/context'
 
 type Contact = {
   id: string
@@ -43,6 +44,7 @@ type ListSortField = 'order' | 'name' | 'phone' | 'status' | 'notes'
 type SortDir = 'asc' | 'desc'
 
 export default function ListDetailPage() {
+  const t = useT()
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const [list, setList] = useState<ListData | null>(null)
@@ -51,6 +53,7 @@ export default function ListDetailPage() {
   const [campaigns, setCampaigns] = useState<CampaignOption[]>([])
   const [sortField, setSortField] = useState<ListSortField>('order')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [copiedPhone, setCopiedPhone] = useState<string | null>(null)
 
   const fetchList = useCallback(async () => {
     const res = await fetch(`/api/lists/${id}`)
@@ -100,11 +103,12 @@ export default function ListDetailPage() {
   }
 
   async function removeContact(contactId: string) {
+    if (!confirm(t('listRemoveConfirm'))) return
     await fetch(`/api/lists/${id}/contacts/${contactId}`, { method: 'DELETE' })
     fetchList()
   }
 
-  if (!list) return <div className="p-8 text-muted-foreground">Ładowanie...</div>
+  if (!list) return <div className="p-8 text-muted-foreground">{t('loading')}</div>
 
   const total = list.listContacts.filter((lc) => lc.status !== 'NOT_RELEVANT').length
   const called = list.listContacts.filter((lc) => lc.status !== 'NOT_CALLED' && lc.status !== 'NOT_RELEVANT').length
@@ -122,48 +126,49 @@ export default function ListDetailPage() {
   }
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <Link href="/dashboard/lists" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
+    <div>
+      <Link href="/dashboard/lists" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3 shrink-0">
         <ArrowLeft className="h-4 w-4" />
-        Listy
+        {t('listBackToLists')}
       </Link>
 
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between mb-4 shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{list.name}</h1>
-          {list.description && <p className="text-muted-foreground mt-1">{list.description}</p>}
-          <p className="text-sm text-muted-foreground mt-1">{called}/{total} zadzwoniono</p>
+          <h1 className="text-xl font-bold text-foreground">{list.name}</h1>
+          {list.description && <p className="text-muted-foreground text-sm mt-0.5">{list.description}</p>}
+          <p className="text-sm text-muted-foreground mt-0.5">{called}/{total} {t('sessionCalled')}</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => { loadCampaigns(); setShowCampaignPicker(true) }}>
-            <LinkIcon className="h-4 w-4 mr-2" />
-            Przypisz do kampanii
+        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap shrink-0">
+          <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => { loadCampaigns(); setShowCampaignPicker(true) }}>
+            <LinkIcon className="h-4 w-4 mr-1.5" />
+            {t('listAssignToCampaign')}
           </Button>
-          <Button variant="outline" onClick={() => setShowAddContacts(true)}>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Dodaj kontakty
+          <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => setShowAddContacts(true)}>
+            <UserPlus className="h-4 w-4 mr-1.5" />
+            {t('listAddContacts')}
           </Button>
           {total > 0 && (
-            <Link href={`/dashboard/lists/${id}/session`}>
-              <Button>
-                <Play className="h-4 w-4 mr-2" />
-                {nextUncalled ? 'Zacznij/wznów sesję' : 'Przeglądaj sesję'}
+            <Link href={`/dashboard/lists/${id}/session`} className="w-full md:w-auto">
+              <Button size="sm" className="w-full md:w-auto">
+                <Play className="h-4 w-4 mr-1.5" />
+                {nextUncalled ? t('listStartSession') : t('listReviewSession')}
               </Button>
             </Link>
           )}
         </div>
       </div>
 
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-card rounded-xl border border-border overflow-hidden" style={{ minHeight: 'calc(100svh - 200px)' }}>
+        <div className="overflow-auto">
+        <table className="w-full min-w-[560px] text-sm">
           <thead className="bg-muted border-b border-border">
             <tr>
               {([
-                ['order', '#'],
-                ['name', 'Kontakt'],
-                ['phone', 'Telefon'],
-                ['status', 'Status'],
-                ['notes', 'Notatka'],
+                ['order', t('listColIndex')],
+                ['name', t('listColContact')],
+                ['phone', t('listColPhone')],
+                ['status', t('listColStatus')],
+                ['notes', t('listColNote')],
               ] as [ListSortField, string][]).map(([field, label]) => (
                 <th
                   key={field}
@@ -183,7 +188,7 @@ export default function ListDetailPage() {
             {list.listContacts.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                  Brak kontaktów. Kliknij &quot;Dodaj kontakty&quot;.
+                  {t('listNoContacts')}
                 </td>
               </tr>
             )}
@@ -200,10 +205,21 @@ export default function ListDetailPage() {
                   {lc.contact.firstName} {lc.contact.lastName}
                   {lc.contact.company && <span className="ml-1 text-muted-foreground font-normal text-xs">· {lc.contact.company}</span>}
                 </td>
-                <td className="px-4 py-3 font-mono text-foreground">{lc.contact.phone}</td>
+                <td
+                  className="px-4 py-3 font-mono whitespace-nowrap cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    navigator.clipboard.writeText(lc.contact.phone.replace(/\s/g, ''))
+                    setCopiedPhone(lc.id)
+                    setTimeout(() => setCopiedPhone(null), 1500)
+                  }}
+                  title={t('listCopyNumber')}
+                >
+                  {copiedPhone === lc.id ? <span className="text-green-600 dark:text-green-400">{t('copied')}</span> : lc.contact.phone}
+                </td>
                 <td className="px-4 py-3">
                   <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${CALL_STATUS_COLORS[lc.status as keyof typeof CALL_STATUS_COLORS]}`}>
-                    {CALL_STATUS_LABELS[lc.status as keyof typeof CALL_STATUS_LABELS]}
+                    {t(CALL_STATUS_LABEL_KEYS[lc.status as keyof typeof CALL_STATUS_LABEL_KEYS])}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground text-xs max-w-[200px] truncate">{lc.notes ?? '—'}</td>
@@ -217,6 +233,7 @@ export default function ListDetailPage() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {showAddContacts && (
@@ -231,9 +248,9 @@ export default function ListDetailPage() {
       {showCampaignPicker && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowCampaignPicker(false)}>
           <div className="bg-card border border-border rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold text-foreground mb-4">Przypisz listę do kampanii</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-4">{t('listAssignTitle')}</h2>
             {campaigns.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Brak kampanii. Utwórz kampanię najpierw.</p>
+              <p className="text-sm text-muted-foreground">{t('listNoCampaigns')}</p>
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {campaigns.map((c) => (
@@ -244,17 +261,17 @@ export default function ListDetailPage() {
                   >
                     <span className="font-medium text-foreground">{c.name}</span>
                     {c.listId === id && (
-                      <span className="ml-2 text-xs text-green-600">(już przypisana)</span>
+                      <span className="ml-2 text-xs text-green-600">{t('listAlreadyAssigned')}</span>
                     )}
                     {c.listId && c.listId !== id && (
-                      <span className="ml-2 text-xs text-muted-foreground">(ma inną listę)</span>
+                      <span className="ml-2 text-xs text-muted-foreground">{t('listHasOtherList')}</span>
                     )}
                   </button>
                 ))}
               </div>
             )}
             <div className="mt-4 flex justify-end">
-              <Button variant="outline" onClick={() => setShowCampaignPicker(false)}>Zamknij</Button>
+              <Button variant="outline" onClick={() => setShowCampaignPicker(false)}>{t('close')}</Button>
             </div>
           </div>
         </div>

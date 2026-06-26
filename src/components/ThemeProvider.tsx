@@ -2,11 +2,12 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 
-type Theme = 'light' | 'dark'
+export type Theme = 'light' | 'dark'
 
-const ThemeContext = createContext<{ theme: Theme; toggle: () => void }>({
+const ThemeContext = createContext<{ theme: Theme; toggle: () => void; setTheme: (t: Theme) => void }>({
   theme: 'light',
   toggle: () => {},
+  setTheme: () => {},
 })
 
 export function useTheme() {
@@ -23,17 +24,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.classList.toggle('dark', preferred === 'dark')
   }, [])
 
-  const toggle = () => {
-    setTheme(prev => {
-      const next = prev === 'light' ? 'dark' : 'light'
-      localStorage.setItem('theme', next)
-      document.documentElement.classList.toggle('dark', next === 'dark')
-      return next
-    })
+  const applyTheme = (next: Theme) => {
+    localStorage.setItem('theme', next)
+    document.documentElement.classList.toggle('dark', next === 'dark')
+    setTheme(next)
   }
 
+  const toggle = () => applyTheme(theme === 'light' ? 'dark' : 'light')
+
   return (
-    <ThemeContext.Provider value={{ theme, toggle }}>
+    <ThemeContext.Provider value={{ theme, toggle, setTheme: applyTheme }}>
       {children}
     </ThemeContext.Provider>
   )

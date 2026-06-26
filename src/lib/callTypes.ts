@@ -1,10 +1,12 @@
+import type { TranslationKey } from '@/lib/i18n'
+
 export type CallStatus = 'NOT_CALLED' | 'INTERESTED' | 'NOT_INTERESTED' | 'NO_ANSWER' | 'CALLBACK' | 'VOICEMAIL' | 'WRONG_NUMBER' | 'NOT_RELEVANT'
 export type ContactSource = 'MANUAL' | 'CSV_IMPORT' | 'GOOGLE_SCRAPE'
 
-export const CONTACT_SOURCE_LABELS: Record<ContactSource, string> = {
-  MANUAL: 'Ręczny',
-  CSV_IMPORT: 'CSV',
-  GOOGLE_SCRAPE: 'Google',
+export const CONTACT_SOURCE_LABEL_KEYS: Record<ContactSource, TranslationKey> = {
+  MANUAL: 'sourceManual',
+  CSV_IMPORT: 'sourceCSV',
+  GOOGLE_SCRAPE: 'sourceGoogle',
 }
 
 export const CONTACT_SOURCE_COLORS: Record<ContactSource, string> = {
@@ -13,15 +15,15 @@ export const CONTACT_SOURCE_COLORS: Record<ContactSource, string> = {
   GOOGLE_SCRAPE: 'bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-400',
 }
 
-export const CALL_STATUS_LABELS: Record<CallStatus, string> = {
-  NOT_CALLED: 'Nie zadzwoniono',
-  INTERESTED: 'Zainteresowany',
-  NOT_INTERESTED: 'Niezainteresowany',
-  NO_ANSWER: 'Brak odpowiedzi',
-  CALLBACK: 'Oddzwonienie',
-  VOICEMAIL: 'Poczta głosowa',
-  WRONG_NUMBER: 'Zły numer',
-  NOT_RELEVANT: 'Nieodpowiedni',
+export const CALL_STATUS_LABEL_KEYS: Record<CallStatus, TranslationKey> = {
+  NOT_CALLED: 'statusNotCalled',
+  INTERESTED: 'statusInterested',
+  NOT_INTERESTED: 'statusNotInterested',
+  NO_ANSWER: 'statusNoAnswer',
+  CALLBACK: 'statusCallback',
+  VOICEMAIL: 'statusVoicemail',
+  WRONG_NUMBER: 'statusWrongNumber',
+  NOT_RELEVANT: 'statusNotRelevant',
 }
 
 export const CALL_STATUS_COLORS: Record<CallStatus, string> = {

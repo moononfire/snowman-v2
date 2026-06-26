@@ -15,6 +15,20 @@
       "when": 1782326547884,
       "tag": "0001_absurd_demogoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782390973939,
+      "tag": "0002_flat_giant_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782500000000,
+      "tag": "0003_contact_emails",
+      "breakpoints": true
     }
   ]
 }

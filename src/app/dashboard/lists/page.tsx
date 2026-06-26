@@ -6,6 +6,7 @@ import { Plus, Play, ChevronRight, Trash2, UserCheck, PhoneCall, PhoneMissed, Us
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useT } from '@/lib/i18n/context'
 
 type ListItem = {
   id: string
@@ -17,6 +18,7 @@ type ListItem = {
 }
 
 export default function ListsPage() {
+  const t = useT()
   const [lists, setLists] = useState<ListItem[]>([])
   const [showNew, setShowNew] = useState(false)
   const [name, setName] = useState('')
@@ -44,7 +46,7 @@ export default function ListsPage() {
   }
 
   async function deleteList(id: string) {
-    if (!confirm('Usunąć tę listę? Nie usuwa kontaktów.')) return
+    if (!confirm(t('listsConfirmDelete'))) return
     await fetch(`/api/lists/${id}`, { method: 'DELETE' })
     setLists((prev) => prev.filter((l) => l.id !== id))
   }
@@ -52,29 +54,29 @@ export default function ListsPage() {
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Listy do dzwonienia</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t('listsTitle')}</h1>
         <Button onClick={() => setShowNew(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Nowa lista
+          {t('listsNew')}
         </Button>
       </div>
 
       {showNew && (
         <div className="bg-card rounded-xl border border-border p-5 mb-6 shadow-sm">
-          <h3 className="font-semibold text-foreground mb-3">Nowa lista</h3>
+          <h3 className="font-semibold text-foreground mb-3">{t('listsNewTitle')}</h3>
           <div className="space-y-3">
             <div>
-              <Label>Nazwa *</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} className="mt-1" placeholder="np. Poniedziałek 9.06" autoFocus />
+              <Label>{t('listsNameRequired')}</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} className="mt-1" placeholder={t('contactsPlaceholderName')} autoFocus />
             </div>
             <div>
-              <Label>Opis (opcjonalnie)</Label>
-              <Input value={desc} onChange={(e) => setDesc(e.target.value)} className="mt-1" placeholder="Notatka do listy..." />
+              <Label>{t('listsDescriptionOptional')}</Label>
+              <Input value={desc} onChange={(e) => setDesc(e.target.value)} className="mt-1" placeholder={t('contactsPlaceholderDesc')} />
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowNew(false)}>Anuluj</Button>
+              <Button variant="outline" onClick={() => setShowNew(false)}>{t('cancel')}</Button>
               <Button onClick={createList} disabled={!name || saving}>
-                {saving ? 'Tworzenie...' : 'Utwórz'}
+                {saving ? t('creating') : t('create')}
               </Button>
             </div>
           </div>
@@ -98,39 +100,39 @@ export default function ListsPage() {
         const positiveRate = reached > 0 ? Math.round((interested / reached) * 100) : 0
 
         const statuses = [
-          { label: 'Zainteresowany', count: interested, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-500', icon: <UserCheck className="h-4 w-4" /> },
-          { label: 'Oddzwonienie', count: callback, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500', icon: <PhoneCall className="h-4 w-4" /> },
-          { label: 'Brak odpowiedzi', count: noAnswer, color: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-500', icon: <PhoneMissed className="h-4 w-4" /> },
-          { label: 'Poczta głosowa', count: voicemail, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-500', icon: <MessageSquare className="h-4 w-4" /> },
-          { label: 'Niezainteresowany', count: notInterested, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500', icon: <UserX className="h-4 w-4" /> },
-          { label: 'Nieodpowiedni', count: notRelevant, color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-500', icon: <Ban className="h-4 w-4" /> },
-          { label: 'Zły numer', count: wrongNumber, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-500', icon: <AlertTriangle className="h-4 w-4" /> },
+          { label: t('kpiStatusInterested'), count: interested, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-500', icon: <UserCheck className="h-4 w-4" /> },
+          { label: t('statusCallback'), count: callback, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500', icon: <PhoneCall className="h-4 w-4" /> },
+          { label: t('statusNoAnswer'), count: noAnswer, color: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-500', icon: <PhoneMissed className="h-4 w-4" /> },
+          { label: t('statusVoicemail'), count: voicemail, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-500', icon: <MessageSquare className="h-4 w-4" /> },
+          { label: t('statusNotInterested'), count: notInterested, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500', icon: <UserX className="h-4 w-4" /> },
+          { label: t('statusNotRelevant'), count: notRelevant, color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-500', icon: <Ban className="h-4 w-4" /> },
+          { label: t('statusWrongNumber'), count: wrongNumber, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-500', icon: <AlertTriangle className="h-4 w-4" /> },
         ]
 
         return (
           <div className="mb-6 space-y-4">
             <div className="grid grid-cols-4 gap-3">
               <div className="bg-card rounded-xl border border-border p-4">
-                <p className="text-xs text-muted-foreground mb-1">Obdzwoniono</p>
+                <p className="text-xs text-muted-foreground mb-1">{t('kpiCalled')}</p>
                 <p className="text-2xl font-bold text-foreground">{called} <span className="text-sm font-normal text-muted-foreground">/ {total}</span></p>
                 <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mt-2">
                   <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${total > 0 ? (called / total) * 100 : 0}%` }} />
                 </div>
               </div>
               <div className="bg-card rounded-xl border border-border p-4">
-                <p className="text-xs text-muted-foreground mb-1">Dodzwanialność</p>
+                <p className="text-xs text-muted-foreground mb-1">{t('kpiReachRate')}</p>
                 <p className="text-2xl font-bold text-foreground">{contactRate}%</p>
-                <p className="text-xs text-muted-foreground mt-1">{reached} z {called} odebrało</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('kpiReachDescription')}</p>
               </div>
               <div className="bg-card rounded-xl border border-border p-4">
-                <p className="text-xs text-muted-foreground mb-1">Konwersja</p>
+                <p className="text-xs text-muted-foreground mb-1">{t('kpiConversion')}</p>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">{positiveRate}%</p>
-                <p className="text-xs text-muted-foreground mt-1">{interested} zainteresowanych</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('kpiConversionInterested')}</p>
               </div>
               <div className="bg-card rounded-xl border border-border p-4">
-                <p className="text-xs text-muted-foreground mb-1">Do oddzwonienia</p>
+                <p className="text-xs text-muted-foreground mb-1">{t('kpiCallbackTitle')}</p>
                 <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{callback}</p>
-                <p className="text-xs text-muted-foreground mt-1">kontaktów czeka</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('kpiCallbackWaiting')}</p>
               </div>
             </div>
 
@@ -159,7 +161,7 @@ export default function ListsPage() {
       <div className="space-y-3">
         {lists.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
-            <p>Brak list. Kliknij &quot;Nowa lista&quot;, żeby zacząć.</p>
+            <p>{t('listsEmpty')}</p>
           </div>
         )}
         {lists.map((list) => {
@@ -177,9 +179,9 @@ export default function ListsPage() {
                   </Link>
                   {list.description && <p className="text-sm text-muted-foreground mt-0.5">{list.description}</p>}
                   <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                    <span>{total} kontaktów</span>
-                    <span>{called} zadzwoniono</span>
-                    {interested > 0 && <span className="text-green-600 font-medium">{interested} zainteresowanych</span>}
+                    <span>{total} {t('listsContacts')}</span>
+                    <span>{called} {t('listsCalled')}</span>
+                    {interested > 0 && <span className="text-green-600 font-medium">{interested} {t('listsInterested')}</span>}
                   </div>
                   {total > 0 && (
                     <div className="mt-3 h-1.5 bg-muted rounded-full overflow-hidden w-48">

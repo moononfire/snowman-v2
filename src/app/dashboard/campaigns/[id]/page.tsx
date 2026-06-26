@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   ArrowLeft, Mail, Clock, Phone, ChevronUp, ChevronDown, X, Plus, Save, Loader2,
 } from 'lucide-react'
+import { useT } from '@/lib/i18n/context'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -47,12 +48,6 @@ const STEP_ICONS: Record<Step['type'], React.ReactNode> = {
   call: <Phone className="h-4 w-4 text-green-500" />,
 }
 
-const STEP_LABELS: Record<Step['type'], string> = {
-  send_email: 'Wyślij email',
-  wait: 'Czekaj',
-  call: 'Zadzwoń',
-}
-
 const PLACEHOLDERS = ['{imie}', '{firma}', '{www}', '{telefon}']
 
 // ── Step card ──────────────────────────────────────────────────────────────
@@ -74,6 +69,14 @@ function StepCard({
   onMoveDown: () => void
   onDelete: () => void
 }) {
+  const t = useT()
+
+  const stepLabels: Record<Step['type'], string> = {
+    send_email: t('campaignStepEmail'),
+    wait: t('campaignStepWait'),
+    call: t('campaignStepCall'),
+  }
+
   function insertPlaceholder(field: 'subject' | 'body', placeholder: string) {
     if (step.type !== 'send_email') return
     onChange({ ...step, [field]: (step[field] ?? '') + placeholder } as EmailStep)
@@ -84,13 +87,13 @@ function StepCard({
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-2.5 bg-muted/50 border-b border-border">
         {STEP_ICONS[step.type]}
-        <span className="text-sm font-medium text-foreground flex-1">{STEP_LABELS[step.type]}</span>
+        <span className="text-sm font-medium text-foreground flex-1">{stepLabels[step.type]}</span>
         <div className="flex items-center gap-0.5">
           <button
             onClick={onMoveUp}
             disabled={isFirst}
             className="p-1 rounded hover:bg-border disabled:opacity-30 transition-colors"
-            title="Przesuń wyżej"
+            title={t('campaignStepMoveUp')}
           >
             <ChevronUp className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -98,14 +101,14 @@ function StepCard({
             onClick={onMoveDown}
             disabled={isLast}
             className="p-1 rounded hover:bg-border disabled:opacity-30 transition-colors"
-            title="Przesuń niżej"
+            title={t('campaignStepMoveDown')}
           >
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
           </button>
           <button
             onClick={onDelete}
             className="p-1 rounded hover:bg-red-500/10 hover:text-red-500 transition-colors text-muted-foreground ml-1"
-            title="Usuń krok"
+            title={t('campaignStepDelete')}
           >
             <X className="h-4 w-4" />
           </button>
@@ -117,12 +120,12 @@ function StepCard({
         {step.type === 'send_email' && (
           <>
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Temat</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('campaignEmailSubject')}</label>
               <div className="flex gap-2">
                 <Input
                   value={step.subject}
                   onChange={(e) => onChange({ ...step, subject: e.target.value } as EmailStep)}
-                  placeholder="Temat wiadomości..."
+                  placeholder={t('campaignEmailSubjectPlaceholder')}
                   className="flex-1"
                 />
               </div>
@@ -140,11 +143,11 @@ function StepCard({
             </div>
 
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Treść</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('campaignEmailBody')}</label>
               <Textarea
                 value={step.body}
                 onChange={(e) => onChange({ ...step, body: e.target.value } as EmailStep)}
-                placeholder="Treść maila..."
+                placeholder={t('campaignEmailBodyPlaceholder')}
                 rows={5}
               />
               <div className="flex gap-1 mt-1.5 flex-wrap">
@@ -167,14 +170,14 @@ function StepCard({
                 onChange={(e) => onChange({ ...step, skipIfReplied: e.target.checked } as EmailStep)}
                 className="w-4 h-4 rounded accent-blue-600"
               />
-              <span className="text-sm text-foreground">Pomiń jeśli kontakt już odpowiedział</span>
+              <span className="text-sm text-foreground">{t('campaignEmailSkipIfReplied')}</span>
             </label>
           </>
         )}
 
         {step.type === 'wait' && (
           <div className="flex items-center gap-3">
-            <label className="text-sm text-foreground whitespace-nowrap">Czekaj</label>
+            <label className="text-sm text-foreground whitespace-nowrap">{t('campaignWaitLabel')}</label>
             <Input
               type="number"
               min={1}
@@ -183,14 +186,14 @@ function StepCard({
               className="w-24"
             />
             <span className="text-sm text-muted-foreground">
-              {step.days === 1 ? 'dzień' : step.days < 5 ? 'dni' : 'dni'}
+              {step.days === 1 ? t('campaignWaitDay') : t('campaignWaitDays')}
             </span>
           </div>
         )}
 
         {step.type === 'call' && (
           <p className="text-sm text-muted-foreground">
-            Kontakt pojawi się w kolejce dzwonienia po wykonaniu poprzednich kroków.
+            {t('campaignCallDescription')}
           </p>
         )}
       </div>
@@ -201,6 +204,7 @@ function StepCard({
 // ── Main page ──────────────────────────────────────────────────────────────
 
 export default function CampaignDetailPage() {
+  const t = useT()
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
 
@@ -273,7 +277,7 @@ export default function CampaignDetailPage() {
   if (loading) {
     return (
       <div className="p-8 flex items-center justify-center text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin mr-2" /> Ładowanie...
+        <Loader2 className="h-5 w-5 animate-spin mr-2" /> {t('loading')}
       </div>
     )
   }
@@ -286,13 +290,13 @@ export default function CampaignDetailPage() {
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
-        Kampanie
+        {t('campaignBack')}
       </button>
 
       {/* Header */}
       <div className="flex items-start gap-3 mb-8">
         <div className="flex-1">
-          <label className="text-xs font-medium text-muted-foreground mb-1 block">Nazwa kampanii</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('campaignNameLabel')}</label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -302,10 +306,10 @@ export default function CampaignDetailPage() {
         <div className="pt-6">
           <Button onClick={save} disabled={saving}>
             {saving
-              ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Zapisywanie...</>
+              ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />{t('saving')}</>
               : saved
-              ? '✓ Zapisano'
-              : <><Save className="h-4 w-4 mr-1.5" />Zapisz</>
+              ? `✓ ${t('saved')}`
+              : <><Save className="h-4 w-4 mr-1.5" />{t('save')}</>
             }
           </Button>
         </div>
@@ -313,13 +317,13 @@ export default function CampaignDetailPage() {
 
       {/* List selector */}
       <div className="mb-8">
-        <label className="text-xs font-medium text-muted-foreground mb-1 block">Lista kontaktów</label>
+        <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('campaignListLabel')}</label>
         <select
           value={listId}
           onChange={(e) => setListId(e.target.value)}
           className="w-full border border-border rounded-md px-3 py-2 text-sm bg-card text-foreground"
         >
-          <option value="">— Brak listy —</option>
+          <option value="">{t('campaignNoList')}</option>
           {lists.map((l) => (
             <option key={l.id} value={l.id}>{l.name}</option>
           ))}
@@ -330,7 +334,7 @@ export default function CampaignDetailPage() {
       <div className="space-y-3 mb-6">
         {steps.length === 0 && (
           <div className="border border-dashed border-border rounded-lg py-12 text-center text-muted-foreground text-sm">
-            Brak kroków — dodaj pierwszy krok poniżej
+            {t('campaignNoSteps')}
           </div>
         )}
         {steps.map((step, i) => (
@@ -349,7 +353,7 @@ export default function CampaignDetailPage() {
 
       {/* Add step buttons */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs text-muted-foreground font-medium mr-1">Dodaj krok:</span>
+        <span className="text-xs text-muted-foreground font-medium mr-1">{t('campaignAddStep')}</span>
         <button
           onClick={() => addStep('send_email')}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted text-sm transition-colors"
@@ -364,7 +368,7 @@ export default function CampaignDetailPage() {
         >
           <Plus className="h-3.5 w-3.5" />
           <Clock className="h-3.5 w-3.5 text-amber-500" />
-          Czekaj
+          {t('campaignStepWait')}
         </button>
         <button
           onClick={() => addStep('call')}
@@ -372,7 +376,7 @@ export default function CampaignDetailPage() {
         >
           <Plus className="h-3.5 w-3.5" />
           <Phone className="h-3.5 w-3.5 text-green-500" />
-          Zadzwoń
+          {t('campaignStepCall')}
         </button>
       </div>
     </div>
